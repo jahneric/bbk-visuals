@@ -1,0 +1,68 @@
+bbk visuals – echo
+==================
+
+Live-Visuals: Kamera filmt den DJ, die Silhouette wird mit Echos, Körnung und
+Logo-Laufband auf den Beamer gebracht. Läuft im Browser (am besten Google Chrome).
+
+
+STARTEN
+-------
+Windows:  start.bat doppelklicken. Das schwarze Fenster offen lassen.
+
+Mac:      start-mac.command doppelklicken.
+          Beim ersten Mal blockt macOS das evtl.:
+          Rechtsklick → Öffnen → Öffnen
+          oder: Systemeinstellungen → Datenschutz & Sicherheit → "Dennoch öffnen".
+
+Notlösung (beide): index.html in ein Chrome-Fenster ziehen.
+          Dann braucht es Internet, sonst geht es genauso.
+
+Beim Start fragt Chrome nach Kamera (und für Audio nach dem Mikrofon) → Erlauben.
+
+
+IPHONE ALS KAMERA
+-----------------
+Mac:      Meist geht es ohne App ("Integration mit Kamera"): iPhone XR oder neuer,
+          gleiche Apple-ID wie der Mac, iPhone in der Nähe, WLAN + Bluetooth an.
+          Im Menü unter "Kamera & Audio" taucht dann das iPhone auf.
+          Sonst: App "Camo" aufs iPhone + "Camo Studio" für Mac (reincubate.com/camo).
+
+Windows:  App "Camo" aufs iPhone + "Camo Studio" für Windows (reincubate.com/camo)
+          + "Apple Geräte" aus dem Microsoft Store (USB-Treiber).
+          iPhone per Kabel anstecken, "Vertrauen" antippen.
+
+Wichtig:  Camo Studio zuerst öffnen, dann die Visuals. In Camo die Rückkamera,
+          720p, alle Effekte aus. Im Menü bei "Kamera" dann "Camo" wählen.
+
+GoPro:    Ab Hero 8 per USB mit der App "GoPro Webcam" – erscheint ebenfalls als Kamera.
+
+Ohne Kamera: Looks "Ohne Kamera" (Tasten Q W E R Z U). Fällt die Kamera
+          während der Show aus, schaltet die App nach 3 s selbst auf einen
+          Ohne-Kamera-Look und zurück, sobald wieder ein Bild kommt.
+
+
+BEAMER
+------
+Laptop per HDMI an den Beamer, Bildschirm "Erweitern" (Windows: Win+P,
+Mac: Systemeinstellungen → Displays → nicht spiegeln).
+Visuals-Fenster auf den Beamer ziehen, F = Vollbild, H = Menü weg.
+
+
+TASTEN
+------
+H  Menü an/aus           F  Vollbild            M  Spiegeln
+Y X C V J K  Abend-Looks (ruhig, neblig, mit Name/Logo)
+1–5  Looks mit Kamera    6–0  Club-Looks (dunkel)
+Q W E R Z U  Looks ohne Kamera (Signal, Flüssig, kombiniert, mit Logo)
+Shift+1–0  Effekte für Name/Logo (Laufband, Glitch, Strobo, Schnitte, Welle, Tunnel …)
+N  nächster Name/Logo    T  nächste Schrift (gilt für alle Artists)    B  nächster Hintergrund
+
+"Jetzt zeigen" (oben im Menü): Logo oder Artist anklicken – der bleibt stehen,
+egal welchen Look oder Effekt man danach wählt. Beim Artist-Wechsel nur dort umklicken.
+A  Audio an/aus          Leertaste mehrmals im Takt = BPM
+
+
+AUDIO
+-----
+Im Menü "Audio starten": dann reagiert alles auf die Musik übers Mikrofon.
+Besser: Rec-Out vom Mixer in ein USB-Audio-Interface und das als Eingang wählen.

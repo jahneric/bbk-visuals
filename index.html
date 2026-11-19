@@ -1,0 +1,1522 @@
+<!doctype html>
+<html lang="de">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>bbk visuals – echo</title>
+<style>
+  :root { --paper: #EFE4C6; --ink: #141210; }
+  html, body { margin: 0; height: 100%; background: #000; overflow: hidden;
+    font: 12px/1.35 ui-monospace, "Courier New", monospace; color: var(--ink); }
+  canvas { position: fixed; inset: 0; width: 100vw; height: 100vh; display: block; }
+  body.clean { cursor: none; }
+  body.clean #panel, body.clean #hint { display: none; }
+  #panel { position: fixed; top: 12px; right: 12px; width: 300px; max-height: calc(100vh - 24px);
+    overflow: auto; overflow-x: hidden; background: var(--paper); border: 1px solid var(--ink);
+    box-shadow: 4px 4px 0 var(--ink); padding: 10px 12px; box-sizing: border-box; }
+  h1 { font-size: 13px; margin: 0 0 6px; letter-spacing: .08em; }
+  h2 { font-size: 11px; margin: 12px 0 4px; padding-top: 6px; border-top: 1px dashed var(--ink);
+    text-transform: uppercase; letter-spacing: .1em; }
+  .row { display: grid; grid-template-columns: 96px 1fr 40px; gap: 6px; align-items: center; margin: 3px 0; }
+  .row output { text-align: right; }
+  .row select { grid-column: 2 / 4; min-width: 0; }
+  input[type=range] { width: 100%; accent-color: var(--ink); margin: 0; }
+  select, button, textarea { font: inherit; background: transparent; border: 1px solid var(--ink);
+    color: var(--ink); padding: 2px 4px; }
+  button, select { cursor: pointer; }
+  .chips { display: flex; flex-wrap: wrap; gap: 4px; }
+  .chips button.on { background: var(--ink); color: var(--paper); }
+  /* feste Höhe: sonst verrutscht das Kamera-Menü beim Aktualisieren und Chrome klappt es zu */
+  #status { font-size: 11px; opacity: .75; margin-bottom: 6px; white-space: pre; overflow: hidden;
+    text-overflow: ellipsis; height: calc(5 * 1.35em); }
+  .field { display: grid; grid-template-columns: 96px 1fr; gap: 6px; align-items: center; margin: 3px 0; }
+  .field select, .field input { min-width: 0; width: 100%; }
+  textarea { width: 100%; box-sizing: border-box; min-height: 70px; resize: vertical; margin: 4px 0; }
+  #logos button { display: flex; align-items: center; gap: 4px; }
+  .chips img { height: 18px; background: #777; display: block; }
+  #meter { display: grid; grid-template-columns: repeat(3, 1fr); gap: 3px; height: 14px;
+    border: 1px solid var(--ink); padding: 2px; box-sizing: border-box; }
+  #meter i { display: block; background: var(--ink); width: 0; }
+  #meter.kick { background: var(--ink); }
+  #meter.kick i { background: var(--paper); }
+  #layers { display: grid; grid-template-columns: repeat(6, 1fr); gap: 4px; }
+  #layers button { padding: 5px 2px; grid-column: span 2; }
+  #layers button.on { background: var(--ink); color: var(--paper); }
+  #layers button.all { grid-column: span 3; }
+  #fontFor { margin-top: 8px; }
+  details { border-top: 1px dashed var(--ink); margin-top: 10px; padding-top: 2px; }
+  summary { cursor: pointer; list-style: none; font-size: 11px; font-weight: bold; padding: 5px 0;
+    text-transform: uppercase; letter-spacing: .1em; }
+  summary::-webkit-details-marker { display: none; }
+  summary::before { content: "▸ "; }
+  details[open] > summary::before { content: "▾ "; }
+  details details { border-top: none; margin: 0 0 0 6px; padding-top: 0; }
+  details details summary { font-weight: normal; }
+  .sub { font-size: 10px; opacity: .7; margin: 7px 0 3px; text-transform: uppercase; letter-spacing: .08em; }
+  #fontGrid { display: grid; grid-template-columns: 1fr 1fr; gap: 3px; max-height: 240px; overflow: auto; margin: 4px 0; }
+  #fontGrid button { font-size: 15px; padding: 3px 4px; white-space: nowrap; overflow: hidden;
+    text-overflow: ellipsis; text-align: left; }
+  #fontGrid button.on { background: var(--ink); color: var(--paper); }
+  #hint { position: fixed; left: 12px; bottom: 12px; color: #EFE4C6; opacity: .55; font-size: 11px; }
+</style>
+</head>
+<body>
+<canvas id="c"></canvas>
+<video id="v" playsinline muted loop hidden></video>
+
+<div id="panel">
+  <h1>bbk · echo</h1>
+  <div id="status">startet…</div>
+  <h2>Jetzt zeigen</h2>
+  <div id="itemList" class="chips"></div>
+  <h2>Ebenen an/aus</h2>
+  <div id="layers"></div>
+  <h2>Looks</h2>
+  <div class="sub">Abend · ruhig · Y X C V J K</div>
+  <div id="eveningPresets" class="chips"></div>
+  <div class="sub">Mit Kamera · 1–5</div>
+  <div id="presets" class="chips"></div>
+  <div class="sub">Club dunkel · 6–0</div>
+  <div id="darkPresets" class="chips"></div>
+  <div class="sub">Ohne Kamera · Q W E R Z U</div>
+  <div id="noCamPresets" class="chips"></div>
+  <div class="sub">Effekte für Name/Logo · Shift+1–0</div>
+  <div id="typoPresets" class="chips"></div>
+  <details id="d-quellen" open><summary>Kamera &amp; Audio</summary>
+    <label class="field">Kamera <select id="cam"></select></label>
+    <label class="field">Video-Datei <input id="file" type="file" accept="video/*"></label>
+    <label class="field">Audio-Eingang <select id="audioIn"><option value="">Standard</option></select></label>
+    <div class="field"><button id="audioBtn">Audio starten</button><div id="meter" title="Bass · Mitten · Höhen"><i></i><i></i><i></i></div></div>
+  </details>
+  <details id="d-inhalt"><summary>Namen, Schrift &amp; Logos</summary>
+    <div>Namen (eine Zeile pro Artist)</div>
+    <textarea id="names" spellcheck="false"></textarea>
+    <div id="fontFor"></div>
+    <div id="fontGrid"></div>
+    <label class="field">Logos <input id="logoFile" type="file" accept="image/*" multiple></label>
+    <div id="logos" class="chips"></div>
+  </details>
+  <details id="d-fein"><summary>Feineinstellungen</summary>
+    <div id="controls"></div>
+  </details>
+  <details id="d-tasten"><summary>Tasten</summary>
+    <div>H Menü · F Vollbild · M Spiegeln<br>1–5 Kamera-Looks · 6–0 Club-Looks · Y X C V J K Abend (ruhig) · Q W E R Z U ohne Kamera<br>Shift+1–0 Logo-Looks<br>N nächster Name/Logo · T nächste Schrift (für alle) · B Hintergrund · A Audio an/aus<br>Leertaste mehrmals im Takt tippen = BPM</div>
+  </details>
+</div>
+<div id="hint">H = Menü · F = Vollbild</div>
+
+<script src="lib/default-logo.js"></script>
+<script type="module">
+// Über start.bat (localhost) läuft alles offline aus lib/, per Doppelklick (file://) aus dem Netz
+const LOCAL = location.protocol.startsWith("http");
+const CDN = "https://cdn.jsdelivr.net/npm/@mediapipe/tasks-vision@0.10.14";
+const MODEL_CDN = "https://storage.googleapis.com/mediapipe-models/image_segmenter";
+const { FilesetResolver, ImageSegmenter } = await import(LOCAL ? "./lib/vision_bundle.mjs" : CDN + "/vision_bundle.mjs");
+const WASM = LOCAL ? new URL("lib/wasm", location.href).href : CDN + "/wasm";
+const MODELS = LOCAL ? {
+  schnell: "lib/models/selfie_segmenter.tflite",
+  genau: "lib/models/selfie_multiclass_256x256.tflite",
+} : {
+  schnell: MODEL_CDN + "/selfie_segmenter/float16/latest/selfie_segmenter.tflite",
+  genau: MODEL_CDN + "/selfie_multiclass_256x256/float32/latest/selfie_multiclass_256x256.tflite",
+};
+const LAYERS = 64;        // Masken-Historie (Frames)
+const MAX_ECHOES = 12;
+const PALETTES = {
+  papier: ["#141210", "#EFE4C6"],
+  rein:   ["#000000", "#ffffff"],
+  riso:   ["#0d0f1a", "#3d6cff"],
+  rot:    ["#0a0505", "#ff3b1f"],
+};
+const FONTS = [
+  "Monoton", "Rubik Glitch", "Rubik Mono One", "Rubik Wet Paint", "Rubik Puddles", "Rubik Beastly",
+  "Rubik Moonrocks", "Rubik Microbe", "Rubik Vinyl", "Rubik Burned", "Rubik Distressed", "Rubik Maze",
+  "Rubik Iso", "Rubik Scribble", "Rubik Lines", "Rubik Doodle Shadow", "Bungee Shade", "Bungee Outline",
+  "Bungee Hairline", "Bungee Inline", "Codystar", "Nosifer", "Major Mono Display", "Unica One", "Wallpoet",
+  "Megrim", "Tilt Prism", "Monofett", "Plaster", "Sixtyfour", "Workbench", "Pixelify Sans", "Silkscreen",
+  "VT323", "UnifrakturMaguntia", "Pirata One", "Train One", "Kablammo", "Climate Crisis", "Zen Tokyo Zoo",
+  "Rampart One", "Syncopate", "Michroma", "Orbitron", "Audiowide", "Libre Barcode 39 Text", "Anton",
+  "Unbounded", "Krona One", "Faster One", "Vast Shadow", "Londrina Outline", "Londrina Sketch", "Frijole",
+  "Ewert", "Fascinate", "Tourney", "Jacquard 24", "Danfo", "Jersey 10", "Bagel Fat One",
+];
+const BG_MODES = [[0, "aus"], [1, "Tunnel"], [2, "Kreise"], [3, "Rauch"], [4, "Raster"], [5, "Moiré"], [6, "Spirale"],
+  [7, "Nebel (dunkel)"], [8, "Lichtkegel (dunkel)"], [9, "Scanner (dunkel)"], [10, "Staub (dunkel)"], [11, "Atem (dunkel)"],
+  [12, "Signal-Linien"], [13, "Flüssig"]];
+
+// [key, label, min, max, step] oder [key, label, [[wert, text], …]] oder [überschrift]
+const SCHEMA = [
+  ["Echo"],
+  ["echoes", "Anzahl", 0, MAX_ECHOES, 1],
+  ["delay", "Verzögerung", 0, 5, 0.5],
+  ["spread", "Wachsen", 0, 0.25, 0.005],
+  ["offX", "Versatz ↔", -0.08, 0.08, 0.002],
+  ["offY", "Versatz ↕", -0.08, 0.08, 0.002],
+  ["fade", "Abklingen", 0.3, 1, 0.01],
+  ["echoStyle", "Stil", [[0, "Fläche"], [1, "Kontur"], [2, "Nebel (weich)"]]],
+  ["line", "Linie", 0.05, 0.45, 0.01],
+  ["alt", "Wechselnd", [[0, "aus"], [1, "an"]]],
+  ["anchor", "Anker", [[0, "Füße"], [1, "Mitte"]]],
+  ["Person"],
+  ["person", "Darstellung", [[0, "Video"], [1, "Hell"], [2, "Schwarz"], [3, "Unsichtbar"], [4, "Gegenlicht"]]],
+  ["glow", "Leuchten", 0, 1.5, 0.01],
+  ["contrast", "Kontrast", 0.5, 3, 0.05],
+  ["bg", "Raum", 0, 1, 0.01],
+  ["Hintergrund"],
+  ["bgMode", "Effekt", BG_MODES],
+  ["bgAmt", "Stärke", 0, 1, 0.01],
+  ["bgMode2", "Effekt 2 (vorne)", BG_MODES],
+  ["bgAmt2", "Stärke 2", 0, 1, 0.01],
+  ["bgSpeed", "Tempo", 0, 3, 0.05],
+  ["bgScale", "Größe", 0.2, 4, 0.05],
+  ["Text & Logos"],
+  ["textOn", "Anzeigen", [[1, "an"], [0, "aus"]]],
+  ["textLayer", "Ebene", [[0, "Ganz hinten"], [1, "Hinter Person"], [2, "Vorne"]]],
+  ["textLayout", "Layout", [["band", "Laufband"], ["einzel", "Einzeln"], ["voll", "Vollbild"], ["kachel", "Kachel"], ["stapel", "Stapel"]]],
+  ["bandRows", "Laufband-Zeilen", 1, 12, 1],
+  ["bandSpeed", "Laufband-Tempo", 0, 1, 0.01],
+  ["bandDir", "Richtung", [[1, "gegenläufig"], [0, "alle gleich"]]],
+  ["textStyle", "Stil", [["fill", "Fläche"], ["stroke", "Kontur"], ["both", "Beides"]]],
+  ["textCase", "Schreibweise", [["upper", "GROSS"], ["lower", "klein"], ["orig", "wie getippt"]]],
+  ["textMode", "Farbe", [[0, "Hell"], [1, "Invertierend"]]],
+  ["textMask", "Maske", [[0, "überall"], [1, "nur in Person"], [2, "um Person herum"], [3, "nur in Echos"]]],
+  ["textGrain", "Text-Körnung", 0, 1, 0.01],
+  ["textGlow", "Leuchten", 0, 1, 0.01],
+  ["textSize", "Größe", 0.05, 0.6, 0.01],
+  ["textPos", "Position", [[0.5, "Mitte"], [0.2, "Oben"], [0.8, "Unten"]]],
+  ["textEchoes", "Echos", 0, 6, 1],
+  ["textSpread", "Echo-Abstand", 0, 0.3, 0.005],
+  ["textScroll", "Laufschrift", -0.5, 0.5, 0.01],
+  ["show", "Inhalt", [["alle", "Alles im Wechsel"], ["namen", "Nur Namen"], ["logos", "Nur Logos"], ["fest", "Nur ausgewählter"]]],
+  ["itemEvery", "Wechsel alle s", 0, 60, 1],
+  ["logoKey", "Logo-Maske", [["alpha", "Transparenz"], ["hell", "Helles"], ["dunkel", "Dunkles"]]],
+  ["Takt"],
+  ["bpm", "BPM", 60, 200, 1],
+  ["beatDiv", "Takt", [[0.25, "alle 4 Beats"], [0.5, "alle 2 Beats"], [1, "jeder Beat"], [2, "½ Beat"], [4, "¼ Beat"]]],
+  ["textAnim", "Animation", [[0, "keine"], [1, "Strobo"], [2, "Invert-Strobo"], [3, "Puls"], [4, "Glitch"], [5, "Zerfall"],
+    [6, "Kommen & Gehen"], [7, "Schnitte"], [8, "Welle"], [9, "Tunnel"], [10, "Pixel-Zerfall"], [11, "Rütteln"],
+    [12, "Atmen (ruhig)"], [13, "Nebel (ruhig)"], [14, "Schweben (ruhig)"], [15, "Rauch (ruhig)"]]],
+  ["Audio"],
+  ["audioBeat", "Beat-Quelle", [["audio", "Kick aus Audio"], ["tap", "Tap/BPM"]]],
+  ["audioGain", "Empfindlichkeit", 0.2, 4, 0.05],
+  ["audioText", "→ Text/Logo pumpt", 0, 1, 0.01],
+  ["audioBand", "→ Laufband-Tempo", 0, 1, 0.01],
+  ["audioEcho", "→ Echos", 0, 1, 0.01],
+  ["audioBg", "→ Hintergrund", 0, 1, 0.01],
+  ["audioGrain", "→ Körnung", 0, 1, 0.01],
+  ["Textur"],
+  ["pixel", "Pixel", 1, 40, 1],
+  ["dither", "Dither", [[0, "aus"], [2, "1-Bit"], [3, "3 Stufen"], [4, "4 Stufen"]]],
+  ["ditherSize", "Korngröße", 1, 8, 1],
+  ["grain", "Körnung", 0, 0.5, 0.01],
+  ["vignette", "Vignette", 0, 1, 0.01],
+  ["gamma", "Dunkelheit", 0.5, 3, 0.05],
+  ["palette", "Farbe", [["papier", "Papier"], ["rein", "Schwarz/Weiß"], ["riso", "Riso-Blau"], ["rot", "Rot"]]],
+  ["invert", "Invertieren", [[0, "aus"], [1, "an"]]],
+  ["Erkennung"],
+  ["model", "Modell", [["schnell", "Schnell"], ["genau", "Genau"]]],
+  ["threshold", "Schwelle", 0.2, 0.8, 0.01],
+  ["smooth", "Glättung", 0, 0.9, 0.01],
+  ["mirror", "Spiegeln", [[0, "aus"], [1, "an"]]],
+  ["autoNoCam", "Kamera weg", [[1, "Ohne-Kamera-Look"], [0, "nichts tun"]]],
+];
+
+// Presets ändern nur den Echo-/Textur-Look, Hintergrund und Text bleiben
+const LOOK = { echoes: 6, delay: 3, spread: 0.07, offX: 0, offY: 0, fade: 0.8, echoStyle: 1, line: 0.22,
+  alt: 0, anchor: 0, person: 0, contrast: 1.6, bg: 0, pixel: 1, dither: 0, ditherSize: 2, grain: 0.08,
+  palette: "papier", invert: 0, glow: 0.7, vignette: 0, gamma: 1 };
+const DEFAULTS = { ...LOOK, model: "schnell", threshold: 0.5, smooth: 0.4, mirror: 1,
+  bgMode: 0, bgAmt: 0.35, bgSpeed: 0.6, bgScale: 1, bgMode2: 0, bgAmt2: 1,
+  textOn: 1, textLayer: 0, textLayout: "band", textStyle: "fill", textCase: "upper", textMode: 0,
+  textSize: 0.28, textPos: 0.5, textEchoes: 0, textSpread: 0.06, textScroll: 0, font: "Monoton",
+  itemEvery: 8, selKey: "logo:0", logoKey: "alpha", names: "artist eins\nartist zwei",
+  textMask: 2, textGrain: 0, textGlow: 0, bpm: 128, beatDiv: 1, textAnim: 0,
+  bandRows: 5, bandSpeed: 0.12, bandDir: 1, audioBand: 0.3, autoNoCam: 1,
+  audioBeat: "audio", audioGain: 1, audioText: 0, audioEcho: 0.4, audioBg: 0.5, audioGrain: 0.3, audioDevice: "", camDevice: "", show: "fest", hideDefaultLogo: false,
+  layerPerson: 1, layerEcho: 1, layerBg: 1, layerTexture: 1, layerClub: 1 };
+// Ebenen-Schalter: blenden ganze Ebenen aus, ohne ihre Einstellungen zu verlieren
+const LAYER_TOGGLES = [["layerPerson", "Person"], ["layerEcho", "Echos"], ["layerBg", "Hintergrund"],
+  ["textOn", "Name/Logo"], ["layerTexture", "Textur"], ["layerClub", "Dunkel"]];
+const PRESETS = {
+  "Echo":     {},
+  "Zeitspur": { echoes: 10, delay: 2, spread: 0, fade: 0.85, echoStyle: 0, person: 1, contrast: 1 },
+  "Ringe":    { echoes: 9, delay: 1, spread: 0.06, fade: 1, echoStyle: 0, alt: 1, person: 1 },
+  "Dither":   { echoes: 5, delay: 3, spread: 0.05, fade: 0.7, echoStyle: 0, dither: 2, ditherSize: 3, grain: 0.04 },
+  "Pixel":    { echoes: 4, delay: 4, spread: 0, offX: 0.035, fade: 0.7, echoStyle: 0, pixel: 14, dither: 3, grain: 0 },
+};
+// Club-Presets: viel Schwarz, weiche Lichtverläufe – setzen auch den Hintergrund
+const DARK_BG = { bgMode: 0, bgAmt: 0.6, bgSpeed: 0.6, bgScale: 1, bgMode2: 0 };
+const DARK = {
+  "Gegenlicht": { echoes: 0, person: 4, glow: 0.9, bgMode: 11, bgAmt: 0.5, vignette: 0.6, gamma: 1.4, grain: 0.06 },
+  "Nebelgeist": { echoes: 8, delay: 3, spread: 0.04, fade: 0.8, echoStyle: 2, person: 4, glow: 0.5,
+                  bgMode: 7, bgAmt: 0.25, vignette: 0.5, gamma: 1.5, grain: 0.05 },
+  "Scanner":    { echoes: 3, delay: 4, spread: 0, fade: 0.45, echoStyle: 1, person: 2, bgMode: 9, bgAmt: 0.9,
+                  vignette: 0.4, gamma: 1.2 },
+  "Lichtkegel": { echoes: 0, person: 4, glow: 0.6, bgMode: 8, bgAmt: 0.7, vignette: 0.3, gamma: 1.3, grain: 0.08 },
+  "Staub":      { echoes: 4, delay: 3, spread: 0.03, fade: 0.55, echoStyle: 2, person: 4, glow: 0.5, bgMode: 10,
+                  bgAmt: 0.9, dither: 2, ditherSize: 2, gamma: 1.2, grain: 0.03 },
+};
+
+// Abend: langsame, neblige Hintergründe mit Name/Logo, weich leuchtend – ändern Person/Echos nicht
+const EVENING_BASE = { textOn: 1, textLayer: 0, textMask: 2, textLayout: "einzel", textStyle: "fill", textMode: 0,
+  textSize: 0.2, textPos: 0.5, textEchoes: 0, textScroll: 0, textGrain: 0, audioText: 0, audioBand: 0.1,
+  layerBg: 1, layerTexture: 1, layerClub: 1, bgMode2: 0, bgScale: 1, pixel: 1, dither: 0, invert: 0 };
+const EVENING = {
+  "Nebelname":     { bgMode: 7, bgAmt: 0.5, bgSpeed: 0.3, textAnim: 13, textGlow: 0.5, grain: 0.06, vignette: 0.5, gamma: 1.3 },
+  "Flüssig ruhig": { bgMode: 13, bgAmt: 0.4, bgSpeed: 0.2, textAnim: 12, textGlow: 0.4, grain: 0.05, vignette: 0.4, gamma: 1.3 },
+  "Rauchschrift":  { bgMode: 3, bgAmt: 0.3, bgSpeed: 0.2, textAnim: 15, textGlow: 0.6, textSize: 0.22, grain: 0.06,
+                     vignette: 0.5, gamma: 1.4 },
+  "Atemlicht":     { bgMode: 11, bgAmt: 0.6, bgSpeed: 0.5, textAnim: 14, textGlow: 0.3, grain: 0.05, vignette: 0.3, gamma: 1.2 },
+  "Band ruhig":    { bgMode: 13, bgAmt: 0.35, bgSpeed: 0.2, textLayout: "band", bandRows: 4, bandSpeed: 0.04,
+                     textAnim: 12, textGlow: 0.3, grain: 0.05, vignette: 0.4, gamma: 1.3 },
+  "Sternstaub":    { bgMode: 10, bgAmt: 0.7, bgSpeed: 0.4, textAnim: 13, textGlow: 0.4, grain: 0.04, vignette: 0.4, gamma: 1.2 },
+};
+const EVENING_KEYS = "yxcvjk";
+
+// Ohne Kamera: Signal und Flüssig, einzeln oder kombiniert – das Logo liegt dazwischen
+const NOCAM_BASE = { layerPerson: 0, layerEcho: 0, layerBg: 1, layerTexture: 1, layerClub: 1, bgMode: 0, bgAmt: 1,
+  bgSpeed: 0.6, bgScale: 1, bgMode2: 0, bgAmt2: 1, textMask: 0, textOn: 0 };
+const LOGO_MID = { textOn: 1, textLayout: "band", textLayer: 0 };
+const NOCAM = {
+  "Signal":         { bgMode: 12, vignette: 0.3, grain: 0.05 },
+  "Flüssig":        { bgMode: 13, bgAmt: 0.9, bgSpeed: 0.5, dither: 2, ditherSize: 2, gamma: 1.3 },
+  "Signal+Flüssig": { bgMode: 13, bgAmt: 0.55, bgSpeed: 0.5, bgMode2: 12, dither: 2, ditherSize: 2, gamma: 1.2 },
+  "Signal+Text":    { ...LOGO_MID, bgMode2: 12, vignette: 0.3, grain: 0.05 },
+  "Flüssig+Text":   { ...LOGO_MID, bgMode: 13, bgAmt: 0.7, bgSpeed: 0.5, dither: 2, ditherSize: 2, gamma: 1.2 },
+  "Alles":          { ...LOGO_MID, bgMode: 13, bgAmt: 0.55, bgSpeed: 0.5, bgMode2: 12, textAnim: 6,
+                      dither: 2, ditherSize: 2, gamma: 1.2 },
+};
+const NOCAM_KEYS = "qwerzu";
+
+// Typo-Presets ändern nur Text-Einstellungen (plus das, was der Look braucht)
+const TYPO_BASE = { textOn: 1, textLayer: 1, textLayout: "einzel", textStyle: "fill", textMode: 0, textSize: 0.28,
+  textPos: 0.5, textEchoes: 0, textScroll: 0, textAnim: 0, textMask: 0, textGrain: 0, textGlow: 0, bandRows: 5 };
+// Logo-Looks zeigen immer nur das Logo – andere Schriften gibt es nur für Artist-Namen
+const TYPO = {
+  "Laufband":       { textLayout: "band", textLayer: 0, textMask: 2 },
+  "Glitch":         { textSize: 0.34, textLayer: 2, textAnim: 4 },
+  "Glitch-Band":    { textLayout: "band", textLayer: 0, textMask: 2, textAnim: 4 },
+  "Strobo voll":    { textLayout: "voll", textLayer: 0, textMask: 2, textAnim: 2 },
+  "Schnitte":       { textLayout: "band", textLayer: 0, textMask: 2, bandRows: 3, textAnim: 7 },
+  "Welle":          { textLayout: "band", textLayer: 0, textMask: 2, textAnim: 8 },
+  "Tunnel":         { textSize: 0.3, textLayer: 0, textMask: 2, textAnim: 9 },
+  "Pixel-Zerfall":  { textSize: 0.34, textLayer: 2, textAnim: 10 },
+  "Körnung":        { textSize: 0.34, textGrain: 0.35, textAnim: 5, textEchoes: 3, textSpread: 0.08 },
+  "Rütteln":        { textSize: 0.34, textLayer: 2, textAnim: 11, textEchoes: 2 },
+  "Kommen & Gehen": { textLayout: "band", textLayer: 0, textMask: 2, textAnim: 6 },
+  "Puls":           { textLayout: "kachel", textSize: 0.12, textAnim: 3 },
+  "In Person":      { textLayout: "kachel", textSize: 0.11, textScroll: 0.06, textMask: 1, person: 2 },
+  "In Echos":       { textLayout: "kachel", textSize: 0.09, textScroll: -0.04, textMask: 3, echoStyle: 0, echoes: 6 },
+};
+
+const STORE = "bbk-echo";
+const LOGO_STORE = "bbk-echo-logos";
+const VERSION = 5;
+let P = { ...DEFAULTS };
+try {
+  const saved = JSON.parse(localStorage.getItem(STORE) || "{}");
+  // v2: Schrift wird selbst gewählt statt automatisch gewechselt
+  if ((saved.v || 0) < 2) { delete saved.font; delete saved.fontEvery; }
+  // v3: Logo läuft als Laufband hinter der Person, pumpt nicht mehr mit
+  if ((saved.v || 0) < 3) Object.assign(saved, { textLayout: "band", textLayer: 0, textMask: 2, audioText: 0, show: "logos" });
+  // v4: bbk nur noch als Logo, nie als Schrift; entfernte Hintergründe zurücksetzen
+  if ((saved.v || 0) < 4) {
+    if (typeof saved.names === "string") saved.names = saved.names.split("\n").filter((n) => !/^\s*bbkk?\s*$/i.test(n)).join("\n");
+    saved.show = "logos";
+    if (saved.bgMode > 13) saved.bgMode = 0;
+  }
+  // v5: eine Schrift für alle, "Jetzt zeigen" bleibt fest stehen
+  if ((saved.v || 0) < 5) {
+    delete saved.fontMap;
+    if (saved.font === "*") delete saved.font;
+    Object.assign(saved, { show: "fest", selKey: "logo:0" });
+  }
+  Object.assign(P, saved);
+} catch {}
+P.v = VERSION;
+function save() { try { localStorage.setItem(STORE, JSON.stringify(P)); } catch {} }
+
+// ---------- WebGL ----------
+const canvas = document.getElementById("c");
+const video = document.getElementById("v");
+const gl = canvas.getContext("webgl2", { antialias: false, alpha: false });
+
+const VERT = `#version 300 es
+out vec2 vUv;
+void main() {
+  vec2 p = vec2((gl_VertexID << 1) & 2, gl_VertexID & 2);
+  vUv = vec2(p.x, 1.0 - p.y);
+  gl_Position = vec4(p * 2.0 - 1.0, 0.0, 1.0);
+}`;
+
+const FRAG = `#version 300 es
+precision highp float;
+precision highp sampler2DArray;
+in vec2 vUv;
+out vec4 outColor;
+uniform sampler2D uVideo, uText;
+uniform sampler2DArray uMasks;
+uniform int uHead, uEchoes, uEchoStyle, uPerson, uBgMode, uBgMode2, uTextLayer, uTextMode, uTextEchoes, uTextAnim, uTextMask;
+uniform vec2 uRes, uVideoSize, uAnchor, uOffset;
+uniform float uMirror, uDelay, uSpread, uFade, uLine, uAlt, uContrast, uBg, uThreshold;
+uniform float uBgAmt, uBgAmt2, uBgScale, uBgTime;
+uniform float uTextOn, uTextSpread, uTextScroll, uTextGrain, uTextGlow, uBeat, uBandPos, uBandDir;
+uniform int uBandRows;
+uniform float uBass, uHigh, uLevel, uAudioText, uAudioEcho, uAudioBg, uAudioGrain;
+uniform float uPixel, uDither, uDitherSize, uGrain, uTime, uInvert;
+uniform float uGlow, uVignette, uGamma;
+uniform vec3 uDark, uLight;
+
+const int LAYERS = ${LAYERS};
+const int MAX_ECHOES = ${MAX_ECHOES};
+
+// Bildschirm-UV -> Video-UV (füllend, wie object-fit: cover)
+vec2 toVideo(vec2 uv) {
+  float sa = uRes.x / uRes.y, va = uVideoSize.x / uVideoSize.y;
+  vec2 p = uv - 0.5;
+  if (sa > va) p.y *= va / sa; else p.x *= sa / va;
+  p += 0.5;
+  if (uMirror > 0.5) p.x = 1.0 - p.x;
+  return p;
+}
+float maskAt(vec2 uv, int age) {
+  vec2 v = toVideo(uv);
+  if (v.x < 0.0 || v.y < 0.0 || v.x > 1.0 || v.y > 1.0) return 0.0;
+  int layer = (uHead - age + LAYERS) % LAYERS;
+  return texture(uMasks, vec3(v, float(layer))).r;
+}
+// Weichgezeichnete Maske über die Mipmaps (für Lichthof und Nebel-Echos)
+float maskBlur(vec2 uv, int age, float lod) {
+  vec2 v = toVideo(uv);
+  if (v.x < 0.0 || v.y < 0.0 || v.x > 1.0 || v.y > 1.0) return 0.0;
+  int layer = (uHead - age + LAYERS) % LAYERS;
+  return textureLod(uMasks, vec3(v, float(layer)), lod).r;
+}
+float fill(float m) { return smoothstep(uThreshold - 0.12, uThreshold + 0.12, m); }
+float contour(float m) {
+  return smoothstep(uThreshold - uLine, uThreshold, m) * (1.0 - smoothstep(uThreshold, uThreshold + uLine, m));
+}
+float bayer2(vec2 a) { a = floor(a); return fract(dot(a, vec2(0.5, a.y * 0.75))); }
+float bayer4(vec2 a) { return bayer2(0.5 * a) * 0.25 + bayer2(a); }
+float bayer8(vec2 a) { return bayer4(0.5 * a) * 0.25 + bayer2(a); }
+float hash(vec2 p) { p = fract(p * vec2(123.34, 456.21)); p += dot(p, p + 45.32); return fract(p.x * p.y); }
+float noise(vec2 p) {
+  vec2 i = floor(p), f = fract(p);
+  f = f * f * (3.0 - 2.0 * f);
+  return mix(mix(hash(i), hash(i + vec2(1, 0)), f.x), mix(hash(i + vec2(0, 1)), hash(i + vec2(1, 1)), f.x), f.y);
+}
+float fbm(vec2 p) {
+  float v = 0.0, a = 0.5;
+  for (int i = 0; i < 5; i++) { v += a * noise(p); p *= 2.0; a *= 0.5; }
+  return v;
+}
+
+float background(vec2 uv, int mode) {
+  vec2 p = (uv - 0.5) * vec2(uRes.x / uRes.y, 1.0);
+  float t = uBgTime, s = uBgScale;
+  if (mode == 1) {          // Tunnel: Rechtecke fliegen auf einen zu
+    float d = max(abs(p.x), abs(p.y));
+    return step(0.5, fract(log(d + 1e-3) * 3.0 * s - t));
+  }
+  if (mode == 2) {          // Kreise: Wellen von der Mitte
+    return step(0.5, fract(length(p) * 8.0 * s - t));
+  }
+  if (mode == 3) {          // Rauch: verwirbeltes Rauschen
+    vec2 q = p * 2.5 * s;
+    float n = fbm(q + vec2(fbm(q + t * 0.3), fbm(q - t * 0.25)) * 1.6);
+    return smoothstep(0.35, 0.75, n);
+  }
+  if (mode == 4) {          // Raster: Halbton-Punkte mit Welle
+    float cells = 36.0 / s;
+    vec2 g = p * cells, id = floor(g), f = fract(g) - 0.5;
+    float r = 0.48 * (0.5 + 0.5 * sin(length(id / cells) * 10.0 - t * 2.0));
+    return 1.0 - smoothstep(r - 0.06, r + 0.06, length(f));
+  }
+  if (mode == 5) {          // Moiré: zwei leicht verdrehte Linienraster
+    float a = 0.06 * sin(t * 0.5);
+    vec2 r = mat2(cos(a), -sin(a), sin(a), cos(a)) * p;
+    return abs(step(0.5, fract(p.x * 60.0 * s)) - step(0.5, fract(r.x * 60.0 * s + t * 0.2)));
+  }
+  if (mode == 6) {          // Spirale
+    float an = atan(p.y, p.x);
+    return step(0.5, fract(an / 6.2832 * 6.0 + log(length(p) + 1e-3) * 2.0 * s - t));
+  }
+  if (mode == 7) {          // Nebel: dunkle, langsame Schwaden
+    vec2 q = p * 1.6 * s;
+    float n = fbm(q + vec2(t * 0.08, t * 0.03));
+    n = fbm(q * 1.7 + n * 2.0 - vec2(0.0, t * 0.12));
+    return pow(smoothstep(0.35, 0.85, n), 2.2);
+  }
+  if (mode == 8) {          // Lichtkegel: Strahlen von oben wie Moving Heads im Dunst
+    float v = 0.0;
+    for (int i = 0; i < 4; i++) {
+      float fi = float(i);
+      vec2 o = vec2((fi - 1.5) * 0.45 * uRes.x / uRes.y, -0.55);
+      float a = sin(t * 0.35 + fi * 1.9) * 0.55;
+      vec2 d = vec2(sin(a), cos(a));
+      vec2 q = p - o;
+      float along = dot(q, d), across = abs(q.x * d.y - q.y * d.x);
+      float w = 0.01 + along * 0.12 * s;
+      v += smoothstep(w, 0.0, across) * step(0.0, along) * exp(-along * 1.2);
+    }
+    return clamp(v * (0.6 + 0.4 * fbm(p * 3.0 + vec2(t * 0.1, 0.0))), 0.0, 1.0);
+  }
+  if (mode == 9) {          // Scanner: ein weicher Lichtbalken wandert durchs Dunkel
+    float d = p.y - (fract(t * 0.12) * 1.4 - 0.7);
+    float bar = exp(-d * d * 900.0 / s) + (d < 0.0 ? exp(d * 7.0) * 0.25 : 0.0);
+    return clamp(bar, 0.0, 1.0) * (0.85 + 0.15 * step(0.5, fract(uv.y * uRes.y * 0.5)));
+  }
+  if (mode == 10) {         // Staub: vereinzelte, funkelnde Partikel
+    float v = 0.0;
+    for (int l = 0; l < 2; l++) {
+      float fl = float(l);
+      vec2 g = p * (30.0 + fl * 25.0) / s + vec2(t * 0.15 * (1.0 + fl), -t * 0.3);
+      vec2 id = floor(g), f = fract(g);
+      float h = hash(id + fl * 17.0);
+      vec2 pos = vec2(hash(id + 3.1), hash(id + 7.7)) * 0.6 + 0.2;
+      v += step(0.9, h) * smoothstep(0.12, 0.0, length(f - pos)) * (0.5 + 0.5 * sin(t * 3.0 + h * 60.0));
+    }
+    return clamp(v + fbm(p * 2.0 + t * 0.05) * 0.08, 0.0, 1.0);
+  }
+  if (mode == 11) {         // Atem: weiches Licht aus der Mitte, das ein- und ausatmet
+    float b = 0.5 + 0.5 * sin(t * 0.9);
+    return exp(-dot(p, p) * (7.0 - 4.0 * b) / s) * (0.35 + 0.45 * b);
+  }
+  float au = uAudioBg * uBass;
+  if (mode == 12) {         // Signal-Linien: gestapelte Wellenlinien, die in der Mitte ausschlagen
+    float rows = 34.0 / s, y = uv.y * rows, lw = 1.6 * rows / uRes.y, v = 0.0;
+    for (int k = 0; k < 4; k++) {
+      float r = floor(y) + float(k);
+      float pk = pow(fbm(vec2(p.x * 7.0 + r * 3.1, t * 0.5 + r * 0.2)), 2.0) * exp(-p.x * p.x * 9.0) * (3.5 + au * 6.0);
+      v = max(v, smoothstep(lw, 0.0, abs(y - (r + 0.85 - pk))));
+    }
+    return v;
+  }
+  if (mode == 13) {         // Flüssig: verwirbeltes Rauschen als Höhenlinien
+    vec2 q = p * 1.8 * s;
+    vec2 a = vec2(fbm(q + t * 0.12), fbm(q + vec2(5.2, 1.3) - t * 0.1));
+    vec2 b = vec2(fbm(q + 3.0 * a + vec2(1.7, 9.2) + t * 0.15), fbm(q + 3.0 * a + vec2(8.3, 2.8)));
+    float n = fbm(q + 3.0 * b);
+    return smoothstep(0.06 + au * 0.08, 0.0, abs(fract(n * 4.0) - 0.5) - 0.02) * (0.4 + n);
+  }
+  return 0.0;
+}
+
+// blur > 0: weichgezeichnet über die Mipmaps (für das Leuchten)
+float textAtLod(vec2 uv, float blur) {
+  if (uBandRows > 0) {
+    // Laufband: die Zeilen laufen abwechselnd nach links und rechts, endlos
+    if (uv.y < 0.0 || uv.y >= 1.0) return 0.0;
+    float rows = float(uBandRows), r = floor(uv.y * rows);
+    float dir = uBandDir > 0.5 && mod(r, 2.0) > 0.5 ? -1.0 : 1.0;
+    // feste Mip-Stufe: an der Naht des Laufbands würde die automatische Wahl springen
+    return textureLod(uText, vec2(fract(uv.x * rows + dir * uBandPos), fract(uv.y * rows)), log2(rows) + blur).a;
+  }
+  uv.x += uTextScroll;
+  if (uTextScroll != 0.0) uv.x = fract(uv.x);
+  if (blur > 0.0) return textureLod(uText, clamp(uv, 0.0, 1.0), blur).a;
+  if (uv.x < 0.0 || uv.y < 0.0 || uv.x > 1.0 || uv.y > 1.0) return 0.0;
+  return texture(uText, uv).a;
+}
+float textAt(vec2 uv) { return textAtLod(uv, 0.0); }
+// Text inkl. Echos und Takt-Animation (Puls, Glitch, Strobo, Zerfall)
+float textLayer(vec2 uv, vec2 dc) {
+  float ph = fract(uBeat), bi = floor(uBeat);
+  uv = (uv - 0.5) / (1.0 + uAudioText * uBass * 0.35) + 0.5;
+  if (uTextAnim == 3) uv = (uv - 0.5) / (1.0 + 0.18 * exp(-ph * 6.0)) + 0.5;
+  if (uTextAnim == 4) {
+    float row = floor(uv.y * 28.0);
+    uv.x += (hash(vec2(row, bi)) - 0.5) * 0.2 * step(0.55, hash(vec2(row * 1.7, bi + 3.0)));
+  }
+  if (uTextAnim == 7) {        // Schnitte: Streifen schieben sich auf dem Beat zusammen
+    float row = floor(uv.y * 14.0);
+    uv.x += (mod(row, 2.0) * 2.0 - 1.0) * 0.25 * pow(1.0 - ph, 4.0);
+  }
+  if (uTextAnim == 8) uv.x += sin(uv.y * 22.0 + uTime * 5.0) * (0.01 + 0.03 * exp(-ph * 5.0));   // Welle
+  if (uTextAnim == 10) {       // Pixel-Zerfall: auf dem Beat grob, dann wieder scharf
+    float bs = 0.09 * pow(1.0 - ph, 2.0);
+    if (bs > 0.003) { vec2 b = vec2(bs * uRes.y / uRes.x, bs); uv = (floor(uv / b) + 0.5) * b; }
+  }
+  if (uTextAnim == 11) uv += (vec2(hash(vec2(bi, 1.0)), hash(vec2(bi, 2.0))) - 0.5) * 0.06 * exp(-ph * 7.0);   // Rütteln
+  // ruhige Animationen laufen nach Zeit, nicht nach Beat
+  if (uTextAnim == 14) {       // Schweben: driftet langsam und atmet in der Größe
+    uv += vec2(sin(uTime * 0.17), sin(uTime * 0.23)) * vec2(0.015, 0.025);
+    uv = (uv - 0.5) / (1.0 + 0.04 * sin(uTime * 0.31)) + 0.5;
+  }
+  if (uTextAnim == 15)         // Rauch: die Schrift wabert wie durch warme Luft
+    uv += (vec2(fbm(uv * 3.0 + uTime * 0.12), fbm(uv * 3.0 - uTime * 0.1 + 7.0)) - 0.5) * 0.035;
+  float a = uTextAnim == 9 ? 0.0 : textAt(uv);
+  if (uTextAnim == 9) {        // Tunnel: Kopien wachsen endlos aus der Mitte
+    float z = fract(uTime * 0.35);
+    for (int i = 0; i < 6; i++) {
+      float k = float(i) + z;
+      a = max(a, textAt((uv - 0.5) / exp2(k - 3.0) + 0.5) * smoothstep(0.0, 1.0, k) * smoothstep(6.0, 4.0, k));
+    }
+  }
+  for (int i = 1; i <= 6; i++) {
+    if (i > uTextEchoes) break;
+    float fi = float(i);
+    a = max(a, textAt((uv - 0.5) / (1.0 + uTextSpread * fi) + 0.5) * pow(0.7, fi));
+  }
+  if (uTextAnim == 1 && ph > 0.5) a = 0.0;
+  if (uTextAnim == 6) { float cyc = mod(uBeat, 8.0); a *= clamp(min(cyc, 4.0 - cyc) * 1.5, 0.0, 1.0); }   // Kommen & Gehen
+  if (uTextGlow > 0.0)         // Leuchten: weicher Lichthof um Name/Logo
+    a = max(a, (smoothstep(0.0, 0.5, textAtLod(uv, 3.5)) * 0.45 + smoothstep(0.0, 0.4, textAtLod(uv, 5.5)) * 0.3) * uTextGlow);
+  if (uTextAnim == 12) a *= 0.3 + 0.7 * (0.5 + 0.5 * sin(uTime * 0.6));   // Atmen
+  if (uTextAnim == 13) {       // Nebel: Name/Logo löst sich langsam auf und setzt sich wieder zusammen
+    float thr = mix(0.85, 0.2, 0.5 + 0.5 * sin(uTime * 0.3));
+    a *= smoothstep(thr - 0.08, thr + 0.08, fbm(uv * vec2(7.0, 4.0) + uTime * 0.06));
+  }
+  float grain = max(uTextGrain, uTextAnim == 5 ? ph : 0.0);
+  if (grain > 0.0) a *= step(grain, hash(dc * 0.731 + fract(uTime * 3.1) * 53.0));
+  return a;
+}
+float applyText(float c, float a) { return uTextMode == 1 ? mix(c, 1.0 - c, a) : mix(c, 1.0, a); }
+
+void main() {
+  vec2 uv = vUv;
+  vec2 cell = vec2(0.0);
+  if (uPixel > 1.0) { cell = floor(uv * uRes / uPixel); uv = (cell + 0.5) * uPixel / uRes; }
+  vec2 dc = uPixel > 1.0 ? cell : floor(gl_FragCoord.xy / uDitherSize);
+
+  float lum = dot(texture(uVideo, toVideo(uv)).rgb, vec3(0.299, 0.587, 0.114));
+  lum = clamp((lum - 0.5) * uContrast + 0.5, 0.0, 1.0);
+  float audioAmt = mix(1.0, min(1.0, 0.25 + uLevel * 1.5), uAudioBg);
+  float bgv = uBgMode > 0 ? background(uv, uBgMode) * uBgAmt * audioAmt : 0.0;
+  float c = clamp(bgv + lum * uBg, 0.0, 1.0);
+  float m0 = fill(maskAt(uv, 0));
+  float ta = uTextOn > 0.5 ? textLayer(uv, dc) : 0.0;
+  if (uTextMask == 1) ta *= m0;
+  if (uTextMask == 2) ta *= 1.0 - m0;
+  if (uTextLayer == 0) c = applyText(c, ta);
+  // Effekt 2 liegt vor dem Logo und dreht es dort um, wo er es kreuzt
+  if (uBgMode2 > 0) c = mix(c, 1.0 - c, clamp(background(uv, uBgMode2) * uBgAmt2 * audioAmt, 0.0, 1.0));
+
+  float echoA = 0.0;
+  float sp = uSpread + uAudioEcho * uBass * 0.06;
+  // Echos von außen nach innen: jede Kopie ist älter, größer, versetzt und dunkler
+  for (int i = MAX_ECHOES; i >= 1; i--) {
+    if (i > uEchoes) continue;
+    float fi = float(i);
+    vec2 p = (uv - uAnchor - uOffset * fi) / (1.0 + sp * fi) + uAnchor;
+    int age = int(fi * uDelay + 0.5);
+    float m = maskAt(p, age);
+    float a = uEchoStyle == 1 ? contour(m)
+            : uEchoStyle == 2 ? smoothstep(0.05, 0.6, maskBlur(p, age, 3.0)) * 0.85
+            : fill(m);
+    float shade = pow(uFade, fi);
+    if (uAlt > 0.5 && i % 2 == 1) shade = 0.0;
+    c = mix(c, shade, a);
+    echoA = max(echoA, a);
+  }
+  if (uTextMask == 3) ta *= echoA * (1.0 - m0);
+  if (uTextLayer == 1) c = applyText(c, ta);
+
+  if (uPerson < 3) {
+    float pc = uPerson == 0 ? lum : (uPerson == 1 ? 1.0 : 0.0);
+    c = mix(c, pc, m0);
+  }
+  if (uPerson == 4) {          // Gegenlicht: schwarze Person mit weichem Lichthof
+    float glow = uGlow * (1.0 + uBass * uAudioEcho);
+    float halo = smoothstep(0.0, 0.55, maskBlur(uv, 0, 3.5)) * (1.0 - m0);
+    c = mix(c, 0.0, m0);
+    c = clamp(c + halo * glow * 0.75 + contour(maskAt(uv, 0)) * glow * 0.35, 0.0, 1.0);
+  }
+  if (uTextLayer == 2) c = applyText(c, ta);
+
+  // Club-Look: Ränder abdunkeln, Mitteltöne Richtung Schwarz drücken
+  c *= 1.0 - uVignette * smoothstep(0.25, 0.9, length((vUv - 0.5) * vec2(uRes.x / uRes.y, 1.0)));
+  c = pow(c, uGamma);
+  c = clamp(c + (hash(dc + fract(uTime * 7.31) * 97.0) - 0.5) * (uGrain + uAudioGrain * uHigh * 0.4), 0.0, 1.0);
+  if (uDither >= 2.0) { float lv = uDither - 1.0; c = floor(c * lv + bayer8(dc)) / lv; }
+  if (uInvert > 0.5) c = 1.0 - c;
+  if (uTextAnim == 2 && mod(floor(uBeat), 2.0) > 0.5) c = 1.0 - c;
+  outColor = vec4(mix(uDark, uLight, c), 1.0);
+}`;
+
+function compile(type, src) {
+  const s = gl.createShader(type);
+  gl.shaderSource(s, src); gl.compileShader(s);
+  if (!gl.getShaderParameter(s, gl.COMPILE_STATUS)) throw new Error(gl.getShaderInfoLog(s));
+  return s;
+}
+const prog = gl.createProgram();
+gl.attachShader(prog, compile(gl.VERTEX_SHADER, VERT));
+gl.attachShader(prog, compile(gl.FRAGMENT_SHADER, FRAG));
+gl.linkProgram(prog);
+if (!gl.getProgramParameter(prog, gl.LINK_STATUS)) throw new Error(gl.getProgramInfoLog(prog));
+gl.useProgram(prog);
+gl.bindVertexArray(gl.createVertexArray());
+const U = {};
+for (let i = 0, n = gl.getProgramParameter(prog, gl.ACTIVE_UNIFORMS); i < n; i++) {
+  const name = gl.getActiveUniform(prog, i).name;
+  U[name] = gl.getUniformLocation(prog, name);
+}
+gl.uniform1i(U.uVideo, 0);
+gl.uniform1i(U.uMasks, 1);
+gl.uniform1i(U.uText, 2);
+
+function setFilter(target) {
+  gl.texParameteri(target, gl.TEXTURE_MIN_FILTER, gl.LINEAR);
+  gl.texParameteri(target, gl.TEXTURE_MAG_FILTER, gl.LINEAR);
+  gl.texParameteri(target, gl.TEXTURE_WRAP_S, gl.CLAMP_TO_EDGE);
+  gl.texParameteri(target, gl.TEXTURE_WRAP_T, gl.CLAMP_TO_EDGE);
+}
+function makeTex(unit) {
+  const tex = gl.createTexture();
+  gl.activeTexture(gl.TEXTURE0 + unit);
+  gl.bindTexture(gl.TEXTURE_2D, tex);
+  setFilter(gl.TEXTURE_2D);
+  gl.texImage2D(gl.TEXTURE_2D, 0, gl.RGBA, 1, 1, 0, gl.RGBA, gl.UNSIGNED_BYTE, new Uint8Array(4));
+  return tex;
+}
+const videoTex = makeTex(0);
+const textTex = makeTex(2);
+gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MIN_FILTER, gl.LINEAR_MIPMAP_LINEAR);
+
+let maskTex = null, maskW = 0, maskH = 0, head = 0, smoothBuf = null, byteBuf = null;
+function ensureMaskTex(w, h) {
+  if (maskTex && w === maskW && h === maskH) return;
+  if (maskTex) gl.deleteTexture(maskTex);
+  maskTex = gl.createTexture();
+  gl.activeTexture(gl.TEXTURE1);
+  gl.bindTexture(gl.TEXTURE_2D_ARRAY, maskTex);
+  setFilter(gl.TEXTURE_2D_ARRAY);
+  // Mipmaps = billige Weichzeichnung für Lichthof und Nebel-Echos
+  gl.texParameteri(gl.TEXTURE_2D_ARRAY, gl.TEXTURE_MIN_FILTER, gl.LINEAR_MIPMAP_LINEAR);
+  gl.texStorage3D(gl.TEXTURE_2D_ARRAY, Math.floor(Math.log2(Math.max(w, h))) + 1, gl.R8, w, h, LAYERS);
+  const zero = new Uint8Array(w * h * LAYERS);
+  gl.pixelStorei(gl.UNPACK_ALIGNMENT, 1);
+  gl.texSubImage3D(gl.TEXTURE_2D_ARRAY, 0, 0, 0, 0, w, h, LAYERS, gl.RED, gl.UNSIGNED_BYTE, zero);
+  gl.generateMipmap(gl.TEXTURE_2D_ARRAY);
+  maskW = w; maskH = h; head = 0;
+  smoothBuf = new Float32Array(w * h);
+  byteBuf = new Uint8Array(w * h);
+}
+ensureMaskTex(1, 1);
+
+function pushMask(data, w, h, invert) {
+  ensureMaskTex(w, h);
+  const s = P.smooth;
+  for (let i = 0; i < data.length; i++) {
+    const v = invert ? 1 - data[i] : data[i];
+    smoothBuf[i] = smoothBuf[i] * s + v * (1 - s);
+    byteBuf[i] = smoothBuf[i] * 255;
+  }
+  head = (head + 1) % LAYERS;
+  gl.activeTexture(gl.TEXTURE1);
+  gl.bindTexture(gl.TEXTURE_2D_ARRAY, maskTex);
+  gl.pixelStorei(gl.UNPACK_ALIGNMENT, 1);
+  gl.texSubImage3D(gl.TEXTURE_2D_ARRAY, 0, 0, 0, head, w, h, 1, gl.RED, gl.UNSIGNED_BYTE, byteBuf);
+  gl.generateMipmap(gl.TEXTURE_2D_ARRAY);
+}
+
+function resize() {
+  canvas.width = innerWidth;
+  canvas.height = innerHeight;
+  textDirty = true;
+}
+addEventListener("resize", resize);
+
+function hexRgb(hex) {
+  const n = parseInt(hex.slice(1), 16);
+  return [(n >> 16 & 255) / 255, (n >> 8 & 255) / 255, (n & 255) / 255];
+}
+
+function draw(t) {
+  gl.viewport(0, 0, canvas.width, canvas.height);
+  gl.uniform2f(U.uRes, canvas.width, canvas.height);
+  gl.uniform2f(U.uVideoSize, video.videoWidth || 16, video.videoHeight || 9);
+  gl.uniform1i(U.uHead, head);
+  gl.uniform1i(U.uEchoes, P.layerEcho ? P.echoes : 0);
+  gl.uniform1i(U.uEchoStyle, P.echoStyle);
+  gl.uniform1i(U.uPerson, P.layerPerson ? P.person : 3);
+  gl.uniform2f(U.uAnchor, 0.5, P.anchor ? 0.5 : 1.0);
+  gl.uniform2f(U.uOffset, P.offX, P.offY);
+  gl.uniform1f(U.uMirror, P.mirror);
+  gl.uniform1f(U.uDelay, P.delay);
+  gl.uniform1f(U.uSpread, P.spread);
+  gl.uniform1f(U.uFade, P.fade);
+  gl.uniform1f(U.uLine, P.line);
+  gl.uniform1f(U.uAlt, P.alt);
+  gl.uniform1f(U.uContrast, P.contrast);
+  gl.uniform1f(U.uBg, P.bg);
+  gl.uniform1f(U.uThreshold, P.threshold);
+  gl.uniform1i(U.uBgMode, P.layerBg ? P.bgMode : 0);
+  gl.uniform1f(U.uBgAmt, P.bgAmt);
+  gl.uniform1i(U.uBgMode2, P.layerBg ? P.bgMode2 : 0);
+  gl.uniform1f(U.uBgAmt2, P.bgAmt2);
+  gl.uniform1f(U.uBgTime, bgTime);
+  gl.uniform1f(U.uBgScale, P.bgScale);
+  gl.uniform1f(U.uTextOn, P.textOn);
+  // "in Person" muss über der Person liegen, "in Echos" über den Echos
+  gl.uniform1i(U.uTextLayer, P.textMask === 1 ? 2 : P.textMask === 3 ? Math.max(P.textLayer, 1) : P.textLayer);
+  gl.uniform1i(U.uTextMask, P.textMask);
+  gl.uniform1i(U.uTextAnim, P.textAnim);
+  gl.uniform1f(U.uTextGrain, P.textGrain);
+  gl.uniform1f(U.uTextGlow, P.textGlow);
+  gl.uniform1f(U.uBeat, beatValue(t));
+  // Audio-Regler wirken nur, solange Audio läuft
+  const on = analyser ? 1 : 0;
+  gl.uniform1f(U.uBass, A.bass);
+  gl.uniform1f(U.uHigh, A.high);
+  gl.uniform1f(U.uLevel, A.level);
+  gl.uniform1f(U.uAudioText, P.audioText * on);
+  gl.uniform1f(U.uAudioEcho, P.audioEcho * on);
+  gl.uniform1f(U.uAudioBg, P.audioBg * on);
+  gl.uniform1f(U.uAudioGrain, P.audioGrain * on * P.layerTexture);
+  gl.uniform1i(U.uTextMode, P.textMode);
+  gl.uniform1i(U.uTextEchoes, P.textEchoes);
+  gl.uniform1f(U.uTextSpread, P.textSpread);
+  gl.uniform1f(U.uTextScroll, (t / 1000 * P.textScroll) % 1);
+  gl.uniform1i(U.uBandRows, P.textLayout === "band" ? P.bandRows : 0);
+  gl.uniform1f(U.uBandPos, bandPos);
+  gl.uniform1f(U.uBandDir, P.bandDir);
+  gl.uniform1f(U.uPixel, P.layerTexture ? P.pixel : 1);
+  gl.uniform1f(U.uDither, P.layerTexture ? P.dither : 0);
+  gl.uniform1f(U.uDitherSize, P.ditherSize);
+  gl.uniform1f(U.uGrain, P.layerTexture ? P.grain : 0);
+  gl.uniform1f(U.uTime, t / 1000);
+  gl.uniform1f(U.uInvert, P.invert);
+  gl.uniform1f(U.uGlow, P.glow);
+  gl.uniform1f(U.uVignette, P.layerClub ? P.vignette : 0);
+  gl.uniform1f(U.uGamma, P.layerClub ? P.gamma : 1);
+  const [dark, light] = PALETTES[P.palette] || PALETTES.papier;
+  gl.uniform3fv(U.uDark, hexRgb(dark));
+  gl.uniform3fv(U.uLight, hexRgb(light));
+  gl.drawArrays(gl.TRIANGLES, 0, 3);
+}
+
+// ---------- Text & Logos ----------
+const tcv = document.createElement("canvas");
+const tctx = tcv.getContext("2d", { willReadFrequently: true });
+let textDirty = true, fonts = [...FONTS], itemIdx = 0, logos = [];
+let lastItemSwitch = 0, beatOrigin = 0, taps = [];
+
+// Google-Fonts laden; Schriften, die nicht kommen, fliegen aus der Rotation
+const fontLink = Object.assign(document.createElement("link"), {
+  rel: "stylesheet",
+  href: LOCAL ? "lib/fonts/fonts.css" : "https://fonts.googleapis.com/css2?" + FONTS.map((f) => "family=" + f.replace(/ /g, "+")).join("&") + "&display=block",
+});
+document.head.append(fontLink);
+const fontsReady = new Promise((r) => { fontLink.onload = r; fontLink.onerror = r; }).then(async () => {
+  const loaded = await Promise.all(FONTS.map((f) => document.fonts.load(`64px "${f}"`, "bbkABC").catch(() => [])));
+  fonts = FONTS.filter((f, i) => loaded[i].length);
+  if (!fonts.length) fonts = ["sans-serif"];
+  textDirty = true;
+});
+
+function items() {
+  const names = P.show === "logos" ? [] : P.names.split("\n").map((s) => s.trim()).filter(Boolean).map((text) => ({ text }));
+  const imgs = P.show === "namen" ? [] : logos.map((img) => ({ img }));
+  return [...imgs, ...names];
+}
+// "Jetzt zeigen" merkt sich den Eintrag über einen Schlüssel – Looks und Effekte ändern ihn nie
+const itemKey = (it) => (it.img ? "logo:" + logos.indexOf(it.img) : "name:" + it.text);
+function currentItem() {
+  const list = items();
+  if (!list.length) return null;
+  if (P.show === "fest") return list.find((it) => itemKey(it) === P.selKey) || list[0];
+  return list[itemIdx % list.length];
+}
+// Eine Schrift für alle Artist-Namen
+function currentFont() { return fonts.includes(P.font) ? P.font : fonts[0]; }
+function setFont(font) {
+  P.font = font;
+  textDirty = true;
+  save();
+}
+function caseText(s) { return P.textCase === "upper" ? s.toUpperCase() : P.textCase === "lower" ? s.toLowerCase() : s; }
+
+function nextItem() {
+  if (P.show === "fest") {
+    const list = items();
+    if (!list.length) return;
+    const i = list.findIndex((it) => itemKey(it) === itemKey(currentItem()));
+    P.selKey = itemKey(list[(i + 1) % list.length]);
+    save();
+  } else itemIdx++;
+  textDirty = true;
+}
+
+function paintText(text, x, y, size, style) {
+  tctx.lineWidth = Math.max(1, size * 0.035);
+  if (style === "fill") tctx.fillText(text, x, y);
+  else if (style === "stroke") tctx.strokeText(text, x, y);
+  else {
+    tctx.strokeText(text, x + size * 0.07, y + size * 0.07);
+    tctx.fillText(text, x, y);
+  }
+}
+
+// Logo in ein Alpha-Bild umwandeln (je nach Maske: Transparenz, helle oder dunkle Teile)
+function logoMask(img, w, h) {
+  const c = document.createElement("canvas");
+  c.width = Math.max(1, Math.round(w)); c.height = Math.max(1, Math.round(h));
+  const x = c.getContext("2d", { willReadFrequently: true });
+  x.drawImage(img, 0, 0, c.width, c.height);
+  if (P.logoKey !== "alpha") {
+    const d = x.getImageData(0, 0, c.width, c.height), px = d.data;
+    for (let i = 0; i < px.length; i += 4) {
+      const l = (px[i] * 0.299 + px[i + 1] * 0.587 + px[i + 2] * 0.114) / 255;
+      px[i + 3] = px[i + 3] * (P.logoKey === "hell" ? l : 1 - l);
+      px[i] = px[i + 1] = px[i + 2] = 255;
+    }
+    x.putImageData(d, 0, 0);
+  }
+  return c;
+}
+
+// Laufband: eine Zeile mit gleichmäßig verteilten Kopien, die sich nahtlos wiederholt
+function drawBand(item, W, H) {
+  let w, h = H * 0.8, paint;
+  if (item.img) {
+    w = h * item.img.width / item.img.height;
+    if (w * 1.15 > W) { h *= W / (w * 1.15); w = W / 1.15; }
+    const m = logoMask(item.img, w, h);
+    paint = (x) => tctx.drawImage(m, x - w / 2, (H - h) / 2);
+  } else {
+    const text = caseText(item.text), font = currentFont();
+    let size = H * 0.72;
+    tctx.textAlign = "center";
+    tctx.textBaseline = "middle";
+    tctx.font = `${size}px "${font}"`;
+    w = tctx.measureText(text).width;
+    if (w * 1.15 > W) { size *= W / (w * 1.15); w = W / 1.15; tctx.font = `${size}px "${font}"`; }
+    paint = (x) => paintText(text, x, H / 2, size, P.textStyle);
+  }
+  const n = Math.max(1, Math.floor(W / (w * 1.25)));
+  for (let i = 0; i < n; i++) paint((i + 0.5) * W / n);
+}
+
+function drawText() {
+  textDirty = false;
+  const W = (tcv.width = canvas.width), H = (tcv.height = canvas.height);
+  tctx.clearRect(0, 0, W, H);
+  const item = currentItem();
+  tctx.fillStyle = tctx.strokeStyle = "#fff";
+  const cy = P.textPos * H;
+
+  if (P.textLayout === "band" && item) drawBand(item, W, H);
+  else if (item?.img) {
+    const h = Math.min(H * 0.9, P.textSize * H * 2.2);
+    const w = h * item.img.width / item.img.height;
+    const m = logoMask(item.img, w, h);
+    if (P.textLayout === "voll") tctx.drawImage(logoMask(item.img, W, H), 0, 0);
+    else if (P.textLayout === "kachel") {
+      for (let y = -h / 2, r = 0; y < H; y += h * 1.15, r++)
+        for (let x = (r % 2) * -w / 2; x < W; x += w * 1.3) tctx.drawImage(m, x, y);
+    } else if (P.textLayout === "stapel") {
+      for (let k = -1; k <= 1; k++) tctx.drawImage(m, (W - w) / 2 + k * w * 1.1, cy - h / 2);
+    } else tctx.drawImage(m, (W - w) / 2, cy - h / 2);
+  } else if (item) {
+    const text = caseText(item.text);
+    const font = currentFont();
+    let size = P.textSize * H;
+    tctx.textAlign = "center";
+    tctx.textBaseline = "middle";
+    tctx.font = `${size}px "${font}"`;
+    if (P.textLayout === "einzel") {
+      const tw = tctx.measureText(text).width;
+      if (tw > W * 0.92) { size *= W * 0.92 / tw; tctx.font = `${size}px "${font}"`; }
+      paintText(text, W / 2, cy, size, P.textStyle);
+    } else if (P.textLayout === "voll") {
+      // Name auf die ganze Fläche gestreckt
+      tctx.textAlign = "left";
+      tctx.textBaseline = "alphabetic";
+      const mt = tctx.measureText(text);
+      const tw = mt.actualBoundingBoxLeft + mt.actualBoundingBoxRight;
+      const th = mt.actualBoundingBoxAscent + mt.actualBoundingBoxDescent;
+      tctx.setTransform(W / tw, 0, 0, H / th, 0, 0);
+      paintText(text, mt.actualBoundingBoxLeft, mt.actualBoundingBoxAscent, size, P.textStyle);
+      tctx.setTransform(1, 0, 0, 1, 0, 0);
+    } else if (P.textLayout === "kachel") {
+      const step = tctx.measureText(text + "   ").width;
+      for (let y = size * 0.5, r = 0; y < H + size; y += size * 1.05, r++) {
+        const style = P.textStyle === "both" ? (r % 2 ? "stroke" : "fill") : P.textStyle;
+        for (let x = (r % 2) * -step / 2; x < W + step; x += step) paintText(text, x, y, size, style);
+      }
+    } else {
+      const tw = tctx.measureText(text).width;
+      if (tw > W * 0.92) { size *= W * 0.92 / tw; tctx.font = `${size}px "${font}"`; }
+      for (let k = -2; k <= 2; k++) {
+        const style = P.textStyle === "both" ? (k % 2 ? "stroke" : "fill") : (k === 0 ? P.textStyle : "stroke");
+        paintText(text, W / 2, cy + k * size * 0.95, size, style);
+      }
+    }
+  }
+  gl.activeTexture(gl.TEXTURE2);
+  gl.bindTexture(gl.TEXTURE_2D, textTex);
+  gl.texImage2D(gl.TEXTURE_2D, 0, gl.RGBA, gl.RGBA, gl.UNSIGNED_BYTE, tcv);
+  gl.generateMipmap(gl.TEXTURE_2D);
+  updateFontGrid();
+  renderItems();
+}
+
+// "Jetzt zeigen": Klick zeigt genau diesen Eintrag und stoppt den Wechsel
+const itemList = document.getElementById("itemList");
+function renderItems() {
+  const cur = currentItem() && itemKey(currentItem());
+  itemList.innerHTML = "";
+  for (const item of items()) {
+    const b = document.createElement("button");
+    if (item.img) b.append(Object.assign(document.createElement("img"), { src: item.img.src }));
+    else b.textContent = item.text;
+    b.classList.toggle("on", itemKey(item) === cur);
+    b.addEventListener("click", () => {
+      P.show = "fest";
+      P.selKey = itemKey(item);
+      textDirty = true;
+      syncUI();
+      save();
+    });
+    itemList.append(b);
+  }
+}
+
+// Schrift-Auswahl: jede Schrift in sich selbst geschrieben
+const fontGrid = document.getElementById("fontGrid");
+const fontFor = document.getElementById("fontFor");
+const fontBtns = FONTS.map((font) => {
+  const b = document.createElement("button");
+  b.textContent = font;
+  b.style.fontFamily = `"${font}"`;
+  b.addEventListener("click", () => setFont(font));
+  fontGrid.append(b);
+  return [font, b];
+});
+function updateFontGrid() {
+  fontFor.textContent = "Schrift für alle Artists";
+  const cur = currentFont();
+  for (const [font, b] of fontBtns) b.classList.toggle("on", font === cur);
+}
+
+function updateText(t) {
+  if (P.itemEvery > 0 && P.show !== "fest" && t - lastItemSwitch > P.itemEvery * 1000) { lastItemSwitch = t; nextItem(); }
+  if (textDirty) drawText();
+}
+
+// Logos: auf max. 800 px verkleinert im Browser merken; das bbkk-Standardlogo steht immer vorne
+function addLogo(src, persist, isDefault = false) {
+  const img = new Image();
+  img.onload = () => {
+    const k = Math.min(1, 800 / Math.max(img.width, img.height));
+    const c = document.createElement("canvas");
+    c.width = Math.round(img.width * k); c.height = Math.round(img.height * k);
+    c.getContext("2d").drawImage(img, 0, 0, c.width, c.height);
+    const url = c.toDataURL("image/png");
+    const small = new Image();
+    small.isDefault = isDefault;
+    small.onload = () => {
+      isDefault ? logos.unshift(small) : logos.push(small);
+      renderLogos();
+      textDirty = true;
+      if (persist) saveLogos();
+    };
+    small.src = url;
+  };
+  img.src = src;
+}
+function saveLogos() {
+  try { localStorage.setItem(LOGO_STORE, JSON.stringify(logos.filter((l) => !l.isDefault).map((l) => l.src))); }
+  catch { console.warn("Logos zu groß zum Speichern – bleiben nur bis zum Neuladen"); }
+}
+function renderLogos() {
+  const box = document.getElementById("logos");
+  box.innerHTML = "";
+  logos.forEach((img, i) => {
+    const b = document.createElement("button");
+    b.title = "entfernen";
+    b.append(Object.assign(document.createElement("img"), { src: img.src }), "×");
+    b.addEventListener("click", () => {
+      logos.splice(i, 1);
+      if (img.isDefault) { P.hideDefaultLogo = true; save(); }
+      renderLogos();
+      saveLogos();
+      textDirty = true;
+    });
+    box.append(b);
+  });
+  if (!logos.some((l) => l.isDefault) && window.BBK_DEFAULT_LOGO) {
+    const b = document.createElement("button");
+    b.textContent = "bbkk-Logo zurückholen";
+    b.addEventListener("click", () => {
+      P.hideDefaultLogo = false;
+      save();
+      addLogo(window.BBK_DEFAULT_LOGO, false, true);
+    });
+    box.append(b);
+  }
+}
+if (window.BBK_DEFAULT_LOGO && !P.hideDefaultLogo) addLogo(window.BBK_DEFAULT_LOGO, false, true);
+try { (JSON.parse(localStorage.getItem(LOGO_STORE)) || []).forEach((src) => addLogo(src, false)); } catch {}
+document.getElementById("logoFile").addEventListener("change", (e) => {
+  for (const f of e.target.files) addLogo(URL.createObjectURL(f), true);
+  e.target.value = "";
+});
+
+const namesEl = document.getElementById("names");
+namesEl.value = P.names;
+namesEl.addEventListener("input", () => { P.names = namesEl.value; textDirty = true; save(); });
+
+// ---------- Audio ----------
+const audioSel = document.getElementById("audioIn");
+const audioBtn = document.getElementById("audioBtn");
+const meter = document.getElementById("meter");
+const meterBars = [...meter.children];
+let actx = null, analyser = null, audioStream = null, freq = null, audioState = "aus";
+let bgTime = 0, bandPos = 0, lastFrame = 0;
+const A = { bass: 0, mid: 0, high: 0, level: 0, bassAvg: 0, prevBass: 0, kicks: 0, lastKick: 0, kickInterval: 469 };
+
+async function startAudio(deviceId) {
+  stopAudio();
+  const constraints = (id) => ({ audio: { deviceId: id ? { exact: id } : undefined,
+    echoCancellation: false, noiseSuppression: false, autoGainControl: false } });
+  try {
+    try { audioStream = await navigator.mediaDevices.getUserMedia(constraints(deviceId)); }
+    catch { audioStream = await navigator.mediaDevices.getUserMedia(constraints()); }
+    actx = new AudioContext();
+    await actx.resume();
+    analyser = actx.createAnalyser();
+    analyser.fftSize = 1024;
+    analyser.smoothingTimeConstant = 0.5;
+    actx.createMediaStreamSource(audioStream).connect(analyser);
+    freq = new Uint8Array(analyser.frequencyBinCount);
+    const track = audioStream.getAudioTracks()[0];
+    audioState = track.label || "an";
+    audioBtn.textContent = "Audio stoppen";
+    P.audioDevice = track.getSettings().deviceId || "";
+    save();
+    await listAudio(P.audioDevice);
+  } catch (e) {
+    audioState = "Fehler: " + e.message;
+  }
+}
+
+function stopAudio() {
+  audioStream?.getTracks().forEach((t) => t.stop());
+  actx?.close();
+  audioStream = actx = analyser = null;
+  A.bass = A.mid = A.high = A.level = 0;
+  audioState = "aus";
+  audioBtn.textContent = "Audio starten";
+}
+
+async function listAudio(activeId) {
+  const devices = (await navigator.mediaDevices.enumerateDevices()).filter((d) => d.kind === "audioinput");
+  audioSel.innerHTML = "";
+  devices.forEach((d, i) => {
+    const o = new Option(d.label || "Eingang " + (i + 1), d.deviceId);
+    o.selected = d.deviceId === activeId;
+    audioSel.add(o);
+  });
+}
+audioBtn.addEventListener("click", () => (analyser ? stopAudio() : startAudio(audioSel.value || P.audioDevice)));
+audioSel.addEventListener("change", () => { if (analyser) startAudio(audioSel.value); });
+
+// Mittelwert eines Frequenzbands (Hz) als 0..1
+function band(lo, hi) {
+  const hz = actx.sampleRate / analyser.fftSize;
+  const a = Math.max(1, Math.round(lo / hz)), b = Math.max(a + 1, Math.round(hi / hz));
+  let sum = 0;
+  for (let i = a; i < b; i++) sum += freq[i];
+  return sum / (b - a) / 255;
+}
+
+function updateAudio(t) {
+  if (!analyser) return;
+  analyser.getByteFrequencyData(freq);
+  const g = P.audioGain;
+  const env = (prev, raw) => (raw > prev ? raw : prev * 0.88);   // schnell hoch, langsam runter
+  const bassRaw = band(35, 150) * g;
+  A.bass = env(A.bass, bassRaw);
+  A.mid = env(A.mid, band(300, 2500) * g);
+  A.high = env(A.high, band(5000, 14000) * g * 1.5);
+  A.level = (A.bass + A.mid + A.high) / 3;
+  // Kick: Bass steigt sprunghaft an und liegt über seinem gleitenden Schnitt
+  if (bassRaw - A.prevBass > 0.08 * g && bassRaw > A.bassAvg && t - A.lastKick > 250) {
+    const iv = t - A.lastKick;
+    if (iv < 1000) A.kickInterval = A.kickInterval * 0.7 + iv * 0.3;
+    A.lastKick = t;
+    A.kicks++;
+  }
+  A.prevBass = bassRaw;
+  A.bassAvg = A.bassAvg * 0.95 + bassRaw * 0.05;
+  [A.bass, A.mid, A.high].forEach((v, i) => (meterBars[i].style.width = Math.min(1, v) * 100 + "%"));
+  meter.classList.toggle("kick", t - A.lastKick < 90);
+}
+
+// Beat-Zähler für die Text-Animationen: echte Kicks oder Tap-Tempo
+function beatValue(t) {
+  if (P.audioBeat === "audio" && analyser)
+    return (A.kicks + Math.min((t - A.lastKick) / A.kickInterval, 0.999)) * P.beatDiv;
+  return (t - beatOrigin) / 1000 * P.bpm / 60 * P.beatDiv;
+}
+
+// ---------- Erkennung ----------
+let fileset = null, segmenter = null, modelState = "lädt…", lastVideoTime = -1, lastTs = 0;
+let segCount = 0, drawCount = 0, lastVideoFrame = performance.now(), camBackup = null;
+
+async function loadModel(name) {
+  modelState = "lädt…";
+  try {
+    fileset ??= await FilesetResolver.forVisionTasks(WASM);
+    let s;
+    const opts = (delegate) => ({
+      baseOptions: { modelAssetPath: MODELS[name], delegate },
+      runningMode: "VIDEO", outputConfidenceMasks: true, outputCategoryMask: false,
+    });
+    try { s = await ImageSegmenter.createFromOptions(fileset, opts("GPU")); modelState = name + " (GPU)"; }
+    catch { s = await ImageSegmenter.createFromOptions(fileset, opts("CPU")); modelState = name + " (CPU)"; }
+    segmenter?.close();
+    segmenter = s;
+  } catch (e) {
+    modelState = "Fehler: " + e.message + " (Internet?)";
+    console.error(e);
+  }
+}
+
+function segment() {
+  const ts = Math.max(lastTs + 1, performance.now());
+  lastTs = ts;
+  segmenter.segmentForVideo(video, ts, (res) => {
+    const masks = res.confidenceMasks;
+    if (!masks?.length) return;
+    // Multiclass-Modell: Maske 0 ist Hintergrund -> invertieren
+    const m = masks[0];
+    pushMask(m.getAsFloat32Array(), m.width, m.height, masks.length > 1);
+    segCount++;
+  });
+}
+
+function loop(t) {
+  requestAnimationFrame(loop);
+  updateAudio(t);
+  // Hintergrund läuft mit den Mitten schneller
+  const dt = Math.min(t - lastFrame, 100) / 1000;
+  bgTime += dt * P.bgSpeed * (1 + (analyser ? P.audioBg * A.mid * 3 : 0));
+  // Laufband: eine Periode = 1, deshalb reicht der Rest (bleibt genau)
+  bandPos = (bandPos + dt * P.bandSpeed * (1 + (analyser ? P.audioBand * A.bass * 4 : 0))) % 1;
+  lastFrame = t;
+  if (video.readyState >= 2 && video.currentTime !== lastVideoTime) {
+    lastVideoTime = video.currentTime;
+    lastVideoFrame = t;
+    gl.activeTexture(gl.TEXTURE0);
+    gl.bindTexture(gl.TEXTURE_2D, videoTex);
+    gl.texImage2D(gl.TEXTURE_2D, 0, gl.RGBA, gl.RGBA, gl.UNSIGNED_BYTE, video);
+    if (segmenter) segment();
+  }
+  updateText(t);
+  draw(t);
+  drawCount++;
+}
+
+// ---------- Quellen ----------
+const camSel = document.getElementById("cam");
+const statusEl = document.getElementById("status");
+let sourceLabel = "–";
+
+function stopStream() {
+  video.srcObject?.getTracks().forEach((t) => t.stop());
+  video.srcObject = null;
+}
+
+const videoInputs = async () => (await navigator.mediaDevices.enumerateDevices()).filter((d) => d.kind === "videoinput");
+
+// auto: beim Start der Reihe nach weiterprobieren, falls eine Kamera nicht startet (belegt, IR-Kamera)
+async function startCamera(deviceId, auto = false, tried = new Set()) {
+  stopStream();
+  video.removeAttribute("src");
+  try {
+    const stream = await navigator.mediaDevices.getUserMedia({
+      audio: false,
+      video: { deviceId: deviceId ? { exact: deviceId } : undefined,
+        width: { ideal: 1280 }, height: { ideal: 720 }, frameRate: { ideal: 60 } },
+    });
+    video.srcObject = stream;
+    await video.play();
+    const track = stream.getVideoTracks()[0];
+    sourceLabel = track.label || "Kamera";
+    P.camDevice = track.getSettings().deviceId || "";
+    save();
+    await listCameras(P.camDevice);
+  } catch (e) {
+    sourceLabel = "Kamera-Fehler: " + e.message;
+    tried.add(deviceId || "");
+    if (auto) {
+      const next = (await videoInputs()).find((d) => !tried.has(d.deviceId) && !/\bIR\b/i.test(d.label));
+      if (next) return startCamera(next.deviceId, true, tried);
+    }
+    await listCameras("");
+  }
+}
+
+async function listCameras(activeId) {
+  const devices = await videoInputs();
+  camSel.innerHTML = "";
+  if (!devices.some((d) => d.deviceId === activeId)) camSel.add(new Option("– Kamera wählen –", ""));
+  devices.forEach((d, i) => {
+    const o = new Option(d.label || "Kamera " + (i + 1), d.deviceId);
+    o.selected = d.deviceId === activeId;
+    camSel.add(o);
+  });
+}
+camSel.addEventListener("change", () => camSel.value && startCamera(camSel.value));
+// Kamera später angesteckt (Camo, GoPro): Liste neu füllen, aber nicht während das Menü offen ist
+navigator.mediaDevices.addEventListener("devicechange", () => {
+  if (document.activeElement !== camSel) listCameras(P.camDevice);
+});
+
+document.getElementById("file").addEventListener("change", (e) => {
+  const f = e.target.files[0];
+  if (!f) return;
+  stopStream();
+  video.src = URL.createObjectURL(f);
+  video.play();
+  sourceLabel = f.name;
+});
+
+setInterval(() => {
+  // Kamera liefert seit 3 s kein Bild: Ohne-Kamera-Look, kommt sie wieder, der alte Look
+  const camGone = performance.now() - lastVideoFrame > 3000;
+  if (P.autoNoCam && camGone && !camBackup && !noCamBtns.some((b) => b.classList.contains("on"))) {
+    camBackup = { ...P };
+    applyNoCam(Object.keys(NOCAM)[0], true);
+  } else if (camBackup && !camGone) {
+    Object.assign(P, camBackup, { selKey: P.selKey, show: P.show, font: P.font, names: P.names });
+    camBackup = null;
+    noCamBtns.forEach((b) => b.classList.remove("on"));
+    textDirty = true;
+    syncUI();
+    save();
+  }
+  const item = currentItem();
+  const shown = !item ? "–" : item.img ? "Logo" : `${item.text} · ${currentFont()}`;
+  statusEl.textContent = `Quelle: ${camBackup ? "kein Bild – Ohne-Kamera-Look" : sourceLabel}\nModell: ${modelState}\n`
+    + `Erkennung ${segCount * 2} fps · Bild ${drawCount * 2} fps\n`
+    + `Audio: ${audioState} · ${analyser && P.audioBeat === "audio" ? Math.round(60000 / A.kickInterval) + " BPM (Kick)" : P.bpm + " BPM"}\n`
+    + `Text: ${shown}`;
+  segCount = drawCount = 0;
+}, 500);
+
+// ---------- UI ----------
+const controls = document.getElementById("controls");
+const inputs = {};
+let group = controls;
+for (const item of SCHEMA) {
+  if (item.length === 1) {
+    group = document.createElement("details");
+    group.id = "d-" + item[0];
+    group.append(Object.assign(document.createElement("summary"), { textContent: item[0] }));
+    controls.append(group);
+    continue;
+  }
+  const [key, label, a, b, step] = item;
+  const row = document.createElement("label");
+  row.className = "row";
+  row.append(label);
+  let input, out = null;
+  if (Array.isArray(a)) {
+    input = document.createElement("select");
+    for (const [val, text] of a) input.add(new Option(text, val));
+    input.addEventListener("change", () => {
+      P[key] = typeof a[0][0] === "number" ? Number(input.value) : input.value;
+      onChange(key);
+    });
+  } else {
+    input = Object.assign(document.createElement("input"), { type: "range", min: a, max: b, step });
+    out = document.createElement("output");
+    input.addEventListener("input", () => { P[key] = Number(input.value); out.textContent = input.value; onChange(key); });
+  }
+  row.append(input);
+  if (out) row.append(out);
+  group.append(row);
+  inputs[key] = { input, out };
+}
+
+// Aufgeklappte Bereiche merken (nur Bedienkomfort, darf fehlen)
+const UI_STORE = "bbk-echo-ui";
+let openState = {};
+try { openState = JSON.parse(localStorage.getItem(UI_STORE)) || {}; } catch {}
+for (const d of document.querySelectorAll("#panel details")) {
+  if (d.id in openState) d.open = openState[d.id];
+  d.addEventListener("toggle", () => {
+    openState[d.id] = d.open;
+    try { localStorage.setItem(UI_STORE, JSON.stringify(openState)); } catch {}
+  });
+}
+
+function syncUI() {
+  for (const [key, { input, out }] of Object.entries(inputs)) {
+    input.value = P[key];
+    if (out) out.textContent = P[key];
+  }
+  updateLayerBtns();
+}
+
+const layerBox = document.getElementById("layers");
+const layerBtns = LAYER_TOGGLES.map(([key, label]) => {
+  const b = document.createElement("button");
+  b.textContent = label;
+  b.addEventListener("click", () => { P[key] = P[key] ? 0 : 1; syncUI(); save(); });
+  layerBox.append(b);
+  return [key, b];
+});
+for (const [label, value] of [["Alles aus", 0], ["Alles an", 1]]) {
+  const b = document.createElement("button");
+  b.textContent = label;
+  b.className = "all";
+  b.addEventListener("click", () => { for (const [key] of LAYER_TOGGLES) P[key] = value; syncUI(); save(); });
+  layerBox.append(b);
+}
+function updateLayerBtns() {
+  for (const [key, b] of layerBtns) b.classList.toggle("on", !!P[key]);
+}
+
+function onChange(key) {
+  if (key === "model") loadModel(P.model);
+  updateLayerBtns();
+  if (key === "show") { itemIdx = 0; textDirty = true; renderItems(); }
+  if (/^(text|font|logo)/.test(key)) textDirty = true;
+  if (key in LOOK) [...presetBtns, ...darkBtns, ...noCamBtns, ...eveningBtns].forEach((b) => b.classList.remove("on"));
+  if (key in TYPO_BASE) typoBtns.forEach((b) => b.classList.remove("on"));
+  save();
+}
+
+const presetBox = document.getElementById("presets");
+const presetBtns = Object.keys(PRESETS).map((name, i) => {
+  const b = document.createElement("button");
+  b.textContent = `${i + 1} ${name}`;
+  b.addEventListener("click", () => applyPreset(name));
+  presetBox.append(b);
+  return b;
+});
+
+const typoBox = document.getElementById("typoPresets");
+const typoBtns = Object.keys(TYPO).map((name, i) => {
+  const b = document.createElement("button");
+  b.textContent = i < 10 ? `⇧${(i + 1) % 10} ${name}` : name;
+  b.addEventListener("click", () => applyTypo(name));
+  typoBox.append(b);
+  return b;
+});
+
+function applyTypo(name) {
+  Object.assign(P, TYPO_BASE, TYPO[name]);
+  textDirty = true;
+  syncUI();
+  save();
+  typoBtns.forEach((b) => b.classList.toggle("on", b.textContent.endsWith(name)));
+}
+
+function applyPreset(name) {
+  camBackup = null;
+  noCamBtns.forEach((b) => b.classList.remove("on"));
+  Object.assign(P, LOOK, PRESETS[name], { layerPerson: 1, layerEcho: 1, layerTexture: 1 });
+  syncUI();
+  save();
+  presetBtns.forEach((b) => b.classList.toggle("on", b.textContent.endsWith(name)));
+  darkBtns.forEach((b) => b.classList.remove("on"));
+}
+
+const eveningBox = document.getElementById("eveningPresets");
+const eveningBtns = Object.keys(EVENING).map((name, i) => {
+  const b = document.createElement("button");
+  b.textContent = `${EVENING_KEYS[i].toUpperCase()} ${name}`;
+  b.addEventListener("click", () => applyEvening(name));
+  eveningBox.append(b);
+  return b;
+});
+function applyEvening(name) {
+  Object.assign(P, EVENING_BASE, EVENING[name]);
+  textDirty = true;
+  syncUI();
+  save();
+  [...presetBtns, ...darkBtns, ...noCamBtns, ...typoBtns].forEach((b) => b.classList.remove("on"));
+  eveningBtns.forEach((b) => b.classList.toggle("on", b.textContent.endsWith(name)));
+}
+
+const noCamBox = document.getElementById("noCamPresets");
+const noCamBtns = Object.keys(NOCAM).map((name, i) => {
+  const b = document.createElement("button");
+  b.textContent = `${NOCAM_KEYS[i].toUpperCase()} ${name}`;
+  b.addEventListener("click", () => applyNoCam(name));
+  noCamBox.append(b);
+  return b;
+});
+
+// auto: von der Kamera-Überwachung ausgelöst, dann den alten Look für die Rückkehr behalten
+function applyNoCam(name, auto = false) {
+  if (!auto) camBackup = null;
+  Object.assign(P, LOOK, NOCAM_BASE, NOCAM[name].textOn ? TYPO_BASE : {}, NOCAM[name]);
+  textDirty = true;
+  syncUI();
+  save();
+  [...presetBtns, ...darkBtns].forEach((b) => b.classList.remove("on"));
+  noCamBtns.forEach((b) => b.classList.toggle("on", b.textContent.endsWith(name)));
+}
+
+const darkBox = document.getElementById("darkPresets");
+const darkBtns = Object.keys(DARK).map((name, i) => {
+  const b = document.createElement("button");
+  b.textContent = `${(i + 6) % 10} ${name}`;
+  b.addEventListener("click", () => applyDark(name));
+  darkBox.append(b);
+  return b;
+});
+
+function applyDark(name) {
+  camBackup = null;
+  noCamBtns.forEach((b) => b.classList.remove("on"));
+  Object.assign(P, LOOK, DARK_BG, DARK[name], { layerPerson: 1, layerEcho: 1, layerBg: 1, layerTexture: 1, layerClub: 1 });
+  syncUI();
+  save();
+  presetBtns.forEach((b) => b.classList.remove("on"));
+  darkBtns.forEach((b) => b.classList.toggle("on", b.textContent.endsWith(name)));
+}
+
+addEventListener("keydown", (e) => {
+  if (["SELECT", "TEXTAREA", "INPUT"].includes(e.target.tagName) && e.target.type !== "range") return;
+  const k = e.key.toLowerCase();
+  if (k === "h") document.body.classList.toggle("clean");
+  else if (k === "f") document.fullscreenElement ? document.exitFullscreen() : document.documentElement.requestFullscreen();
+  else if (k === "m") { P.mirror = P.mirror ? 0 : 1; syncUI(); save(); }
+  else if (k === "n") { lastItemSwitch = performance.now(); nextItem(); }
+  else if (k === "t") {
+    const i = fonts.indexOf(currentFont());
+    setFont(fonts[(i + 1) % fonts.length]);
+  }
+  else if (k === " ") {
+    // Tap-Tempo: mehrmals im Takt tippen, der letzte Tipp setzt den Beat
+    e.preventDefault();
+    document.activeElement?.blur();
+    const now = performance.now();
+    if (taps.length && now - taps[taps.length - 1] > 2000) taps = [];
+    taps = [...taps, now].slice(-8);
+    if (taps.length > 1) P.bpm = Math.min(200, Math.max(60, Math.round(60000 * (taps.length - 1) / (now - taps[0]))));
+    beatOrigin = now;
+    syncUI();
+    save();
+  }
+  else if (k === "a") analyser ? stopAudio() : startAudio(audioSel.value || P.audioDevice);
+  else if (EVENING_KEYS.includes(k) && k.length === 1) applyEvening(Object.keys(EVENING)[EVENING_KEYS.indexOf(k)]);
+  else if (NOCAM_KEYS.includes(k) && k.length === 1) applyNoCam(Object.keys(NOCAM)[NOCAM_KEYS.indexOf(k)]);
+  else if (k === "b") { P.bgMode = (P.bgMode + 1) % BG_MODES.length; syncUI(); save(); }
+  else if (e.shiftKey && /^Digit[0-9]$/.test(e.code)) {
+    const name = Object.keys(TYPO)[(Number(e.code.slice(5)) + 9) % 10];
+    if (name) applyTypo(name);
+  }
+  else if (/^[0-9]$/.test(k)) {
+    const n = k === "0" ? 10 : Number(k);
+    if (n <= 5) applyPreset(Object.keys(PRESETS)[n - 1]);
+    else if (Object.keys(DARK)[n - 6]) applyDark(Object.keys(DARK)[n - 6]);
+  }
+});
+
+resize();
+syncUI();
+requestAnimationFrame(loop);
+startCamera(P.camDevice, true);
+loadModel(P.model);
+</script>
+</body>
+</html>
