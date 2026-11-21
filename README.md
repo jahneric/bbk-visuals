@@ -1,7 +1,7 @@
 # bbk visuals – echo
 
 Live-Visuals für bbk-Abende: Eine Kamera filmt den DJ, die Silhouette läuft mit Echos,
-Körnung und Logo-Laufband über den Beamer. Läuft komplett im Browser (am besten Chrome),
+Nebel und Logo-Laufband über den Beamer. Läuft komplett im Browser (am besten Chrome),
 auf Windows und Mac.
 
 ## Direkt im Browser

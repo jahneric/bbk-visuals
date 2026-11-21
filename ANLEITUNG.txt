@@ -1,7 +1,7 @@
 bbk visuals – echo
 ==================
 
-Live-Visuals: Kamera filmt den DJ, die Silhouette wird mit Echos, Körnung und
+Live-Visuals: Kamera filmt den DJ, die Silhouette wird mit Echos, Nebel und
 Logo-Laufband auf den Beamer gebracht. Läuft im Browser (am besten Google Chrome).
 
 

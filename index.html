@@ -184,7 +184,6 @@ const SCHEMA = [
   ["textCase", "Schreibweise", [["upper", "GROSS"], ["lower", "klein"], ["orig", "wie getippt"]]],
   ["textMode", "Farbe", [[0, "Hell"], [1, "Invertierend"]]],
   ["textMask", "Maske", [[0, "überall"], [1, "nur in Person"], [2, "um Person herum"], [3, "nur in Echos"]]],
-  ["textGrain", "Text-Körnung", 0, 1, 0.01],
   ["textGlow", "Leuchten", 0, 1, 0.01],
   ["textSize", "Größe", 0.05, 0.6, 0.01],
   ["textPos", "Position", [[0.5, "Mitte"], [0.2, "Oben"], [0.8, "Unten"]]],
@@ -197,7 +196,7 @@ const SCHEMA = [
   ["Takt"],
   ["bpm", "BPM", 60, 200, 1],
   ["beatDiv", "Takt", [[0.25, "alle 4 Beats"], [0.5, "alle 2 Beats"], [1, "jeder Beat"], [2, "½ Beat"], [4, "¼ Beat"]]],
-  ["textAnim", "Animation", [[0, "keine"], [1, "Strobo"], [2, "Invert-Strobo"], [3, "Puls"], [4, "Glitch"], [5, "Zerfall"],
+  ["textAnim", "Animation", [[0, "keine"], [1, "Strobo"], [2, "Invert-Strobo"], [3, "Puls"], [4, "Glitch"],
     [6, "Kommen & Gehen"], [7, "Schnitte"], [8, "Welle"], [9, "Tunnel"], [10, "Pixel-Zerfall"], [11, "Rütteln"],
     [12, "Atmen (ruhig)"], [13, "Nebel (ruhig)"], [14, "Schweben (ruhig)"], [15, "Rauch (ruhig)"]]],
   ["Audio"],
@@ -207,12 +206,8 @@ const SCHEMA = [
   ["audioBand", "→ Laufband-Tempo", 0, 1, 0.01],
   ["audioEcho", "→ Echos", 0, 1, 0.01],
   ["audioBg", "→ Hintergrund", 0, 1, 0.01],
-  ["audioGrain", "→ Körnung", 0, 1, 0.01],
   ["Textur"],
   ["pixel", "Pixel", 1, 40, 1],
-  ["dither", "Dither", [[0, "aus"], [2, "1-Bit"], [3, "3 Stufen"], [4, "4 Stufen"]]],
-  ["ditherSize", "Korngröße", 1, 8, 1],
-  ["grain", "Körnung", 0, 0.5, 0.01],
   ["vignette", "Vignette", 0, 1, 0.01],
   ["gamma", "Dunkelheit", 0.5, 3, 0.05],
   ["palette", "Farbe", [["papier", "Papier"], ["rein", "Schwarz/Weiß"], ["riso", "Riso-Blau"], ["rot", "Rot"]]],
@@ -228,16 +223,16 @@ const SCHEMA = [
 
 // Presets ändern nur den Echo-/Textur-Look, Hintergrund und Text bleiben
 const LOOK = { echoes: 6, delay: 3, spread: 0.07, offX: 0, offY: 0, fade: 0.8, echoStyle: 1, line: 0.22,
-  alt: 0, anchor: 0, person: 0, contrast: 1.6, bg: 0, pixel: 1, dither: 0, ditherSize: 2, grain: 0.08,
+  alt: 0, anchor: 0, person: 0, contrast: 1.6, bg: 0, pixel: 1,
   palette: "papier", invert: 0, glow: 0.7, vignette: 0, gamma: 1 };
 const DEFAULTS = { ...LOOK, model: "schnell", threshold: 0.5, smooth: 0.4, mirror: 1,
   bgMode: 0, bgAmt: 0.35, bgSpeed: 0.6, bgScale: 1, bgMode2: 0, bgAmt2: 1,
   textOn: 1, textLayer: 0, textLayout: "band", textStyle: "fill", textCase: "upper", textMode: 0,
   textSize: 0.28, textPos: 0.5, textEchoes: 0, textSpread: 0.06, textScroll: 0, font: "Monoton",
   itemEvery: 8, selKey: "logo:0", logoKey: "alpha", names: "artist eins\nartist zwei",
-  textMask: 2, textGrain: 0, textGlow: 0, bpm: 128, beatDiv: 1, textAnim: 0,
+  textMask: 2, textGlow: 0, bpm: 128, beatDiv: 1, textAnim: 0,
   bandRows: 5, bandSpeed: 0.12, bandDir: 1, audioBand: 0.3, autoNoCam: 1, quality: 1,
-  audioBeat: "audio", audioGain: 1, audioText: 0, audioEcho: 0.4, audioBg: 0.5, audioGrain: 0.3, audioDevice: "", camDevice: "", show: "fest", hideDefaultLogo: false,
+  audioBeat: "audio", audioGain: 1, audioText: 0, audioEcho: 0.4, audioBg: 0.5, audioDevice: "", camDevice: "", show: "fest", hideDefaultLogo: false,
   layerPerson: 1, layerEcho: 1, layerBg: 1, layerTexture: 1, layerClub: 1 };
 // Ebenen-Schalter: blenden ganze Ebenen aus, ohne ihre Einstellungen zu verlieren
 const LAYER_TOGGLES = [["layerPerson", "Person"], ["layerEcho", "Echos"], ["layerBg", "Hintergrund"],
@@ -246,36 +241,33 @@ const PRESETS = {
   "Echo":     {},
   "Zeitspur": { echoes: 10, delay: 2, spread: 0, fade: 0.85, echoStyle: 0, person: 1, contrast: 1 },
   "Ringe":    { echoes: 9, delay: 1, spread: 0.06, fade: 1, echoStyle: 0, alt: 1, person: 1 },
-  "Dither":   { echoes: 5, delay: 3, spread: 0.05, fade: 0.7, echoStyle: 0, dither: 2, ditherSize: 3, grain: 0.04 },
-  "Pixel":    { echoes: 4, delay: 4, spread: 0, offX: 0.035, fade: 0.7, echoStyle: 0, pixel: 14, dither: 3, grain: 0 },
-};
+  "Schichten": { echoes: 5, delay: 3, spread: 0.05, fade: 0.7, echoStyle: 0 },
+  "Pixel":    { echoes: 4, delay: 4, spread: 0, offX: 0.035, fade: 0.7, echoStyle: 0, pixel: 14 } };
 // Club-Presets: viel Schwarz, weiche Lichtverläufe – setzen auch den Hintergrund
 const DARK_BG = { bgMode: 0, bgAmt: 0.6, bgSpeed: 0.6, bgScale: 1, bgMode2: 0 };
 const DARK = {
-  "Gegenlicht": { echoes: 0, person: 4, glow: 0.9, bgMode: 11, bgAmt: 0.5, vignette: 0.6, gamma: 1.4, grain: 0.06 },
+  "Gegenlicht": { echoes: 0, person: 4, glow: 0.9, bgMode: 11, bgAmt: 0.5, vignette: 0.6, gamma: 1.4 },
   "Nebelgeist": { echoes: 8, delay: 3, spread: 0.04, fade: 0.8, echoStyle: 2, person: 4, glow: 0.5,
-                  bgMode: 7, bgAmt: 0.25, vignette: 0.5, gamma: 1.5, grain: 0.05 },
+                  bgMode: 7, bgAmt: 0.25, vignette: 0.5, gamma: 1.5 },
   "Scanner":    { echoes: 3, delay: 4, spread: 0, fade: 0.45, echoStyle: 1, person: 2, bgMode: 9, bgAmt: 0.9,
                   vignette: 0.4, gamma: 1.2 },
-  "Lichtkegel": { echoes: 0, person: 4, glow: 0.6, bgMode: 8, bgAmt: 0.7, vignette: 0.3, gamma: 1.3, grain: 0.08 },
+  "Lichtkegel": { echoes: 0, person: 4, glow: 0.6, bgMode: 8, bgAmt: 0.7, vignette: 0.3, gamma: 1.3 },
   "Staub":      { echoes: 4, delay: 3, spread: 0.03, fade: 0.55, echoStyle: 2, person: 4, glow: 0.5, bgMode: 10,
-                  bgAmt: 0.9, dither: 2, ditherSize: 2, gamma: 1.2, grain: 0.03 },
-};
+                  bgAmt: 0.9, gamma: 1.2 } };
 
 // Abend: langsame, neblige Hintergründe mit Name/Logo, weich leuchtend – ändern Person/Echos nicht
 const EVENING_BASE = { textOn: 1, textLayer: 0, textMask: 2, textLayout: "einzel", textStyle: "fill", textMode: 0,
-  textSize: 0.2, textPos: 0.5, textEchoes: 0, textScroll: 0, textGrain: 0, audioText: 0, audioBand: 0.1,
-  layerBg: 1, layerTexture: 1, layerClub: 1, bgMode2: 0, bgScale: 1, pixel: 1, dither: 0, invert: 0 };
+  textSize: 0.2, textPos: 0.5, textEchoes: 0, textScroll: 0, audioText: 0, audioBand: 0.1,
+  layerBg: 1, layerTexture: 1, layerClub: 1, bgMode2: 0, bgScale: 1, pixel: 1, invert: 0 };
 const EVENING = {
-  "Nebelname":     { bgMode: 7, bgAmt: 0.5, bgSpeed: 0.3, textAnim: 13, textGlow: 0.5, grain: 0.06, vignette: 0.5, gamma: 1.3 },
-  "Flüssig ruhig": { bgMode: 13, bgAmt: 0.4, bgSpeed: 0.2, textAnim: 12, textGlow: 0.4, grain: 0.05, vignette: 0.4, gamma: 1.3 },
-  "Rauchschrift":  { bgMode: 3, bgAmt: 0.3, bgSpeed: 0.2, textAnim: 15, textGlow: 0.6, textSize: 0.22, grain: 0.06,
+  "Nebelname":     { bgMode: 7, bgAmt: 0.5, bgSpeed: 0.3, textAnim: 13, textGlow: 0.5, vignette: 0.5, gamma: 1.3 },
+  "Flüssig ruhig": { bgMode: 13, bgAmt: 0.4, bgSpeed: 0.2, textAnim: 12, textGlow: 0.4, vignette: 0.4, gamma: 1.3 },
+  "Rauchschrift":  { bgMode: 3, bgAmt: 0.3, bgSpeed: 0.2, textAnim: 15, textGlow: 0.6, textSize: 0.22, 
                      vignette: 0.5, gamma: 1.4 },
-  "Atemlicht":     { bgMode: 11, bgAmt: 0.6, bgSpeed: 0.5, textAnim: 14, textGlow: 0.3, grain: 0.05, vignette: 0.3, gamma: 1.2 },
+  "Atemlicht":     { bgMode: 11, bgAmt: 0.6, bgSpeed: 0.5, textAnim: 14, textGlow: 0.3, vignette: 0.3, gamma: 1.2 },
   "Band ruhig":    { bgMode: 13, bgAmt: 0.35, bgSpeed: 0.2, textLayout: "band", bandRows: 4, bandSpeed: 0.04,
-                     textAnim: 12, textGlow: 0.3, grain: 0.05, vignette: 0.4, gamma: 1.3 },
-  "Sternstaub":    { bgMode: 10, bgAmt: 0.7, bgSpeed: 0.4, textAnim: 13, textGlow: 0.4, grain: 0.04, vignette: 0.4, gamma: 1.2 },
-};
+                     textAnim: 12, textGlow: 0.3, vignette: 0.4, gamma: 1.3 },
+  "Sternstaub":    { bgMode: 10, bgAmt: 0.7, bgSpeed: 0.4, textAnim: 13, textGlow: 0.4, vignette: 0.4, gamma: 1.2 } };
 const EVENING_KEYS = "yxcvjk";
 
 // Ohne Kamera: Signal und Flüssig, einzeln oder kombiniert – das Logo liegt dazwischen
@@ -283,19 +275,18 @@ const NOCAM_BASE = { layerPerson: 0, layerEcho: 0, layerBg: 1, layerTexture: 1, 
   bgSpeed: 0.6, bgScale: 1, bgMode2: 0, bgAmt2: 1, textMask: 0, textOn: 0 };
 const LOGO_MID = { textOn: 1, textLayout: "band", textLayer: 0 };
 const NOCAM = {
-  "Signal":         { bgMode: 12, vignette: 0.3, grain: 0.05 },
-  "Flüssig":        { bgMode: 13, bgAmt: 0.9, bgSpeed: 0.5, dither: 2, ditherSize: 2, gamma: 1.3 },
-  "Signal+Flüssig": { bgMode: 13, bgAmt: 0.55, bgSpeed: 0.5, bgMode2: 12, dither: 2, ditherSize: 2, gamma: 1.2 },
-  "Signal+Text":    { ...LOGO_MID, bgMode2: 12, vignette: 0.3, grain: 0.05 },
-  "Flüssig+Text":   { ...LOGO_MID, bgMode: 13, bgAmt: 0.7, bgSpeed: 0.5, dither: 2, ditherSize: 2, gamma: 1.2 },
+  "Signal":         { bgMode: 12, vignette: 0.3 },
+  "Flüssig":        { bgMode: 13, bgAmt: 0.9, bgSpeed: 0.5, gamma: 1.3 },
+  "Signal+Flüssig": { bgMode: 13, bgAmt: 0.55, bgSpeed: 0.5, bgMode2: 12, gamma: 1.2 },
+  "Signal+Text":    { ...LOGO_MID, bgMode2: 12, vignette: 0.3 },
+  "Flüssig+Text":   { ...LOGO_MID, bgMode: 13, bgAmt: 0.7, bgSpeed: 0.5, gamma: 1.2 },
   "Alles":          { ...LOGO_MID, bgMode: 13, bgAmt: 0.55, bgSpeed: 0.5, bgMode2: 12, textAnim: 6,
-                      dither: 2, ditherSize: 2, gamma: 1.2 },
-};
+                      gamma: 1.2 } };
 const NOCAM_KEYS = "qwerzu";
 
 // Typo-Presets ändern nur Text-Einstellungen (plus das, was der Look braucht)
 const TYPO_BASE = { textOn: 1, textLayer: 1, textLayout: "einzel", textStyle: "fill", textMode: 0, textSize: 0.28,
-  textPos: 0.5, textEchoes: 0, textScroll: 0, textAnim: 0, textMask: 0, textGrain: 0, textGlow: 0, bandRows: 5 };
+  textPos: 0.5, textEchoes: 0, textScroll: 0, textAnim: 0, textMask: 0, textGlow: 0, bandRows: 5 };
 // Logo-Looks zeigen immer nur das Logo – andere Schriften gibt es nur für Artist-Namen
 const TYPO = {
   "Laufband":       { textLayout: "band", textLayer: 0, textMask: 2 },
@@ -306,7 +297,6 @@ const TYPO = {
   "Welle":          { textLayout: "band", textLayer: 0, textMask: 2, textAnim: 8 },
   "Tunnel":         { textSize: 0.3, textLayer: 0, textMask: 2, textAnim: 9 },
   "Pixel-Zerfall":  { textSize: 0.34, textLayer: 2, textAnim: 10 },
-  "Körnung":        { textSize: 0.34, textGrain: 0.35, textAnim: 5, textEchoes: 3, textSpread: 0.08 },
   "Rütteln":        { textSize: 0.34, textLayer: 2, textAnim: 11, textEchoes: 2 },
   "Kommen & Gehen": { textLayout: "band", textLayer: 0, textMask: 2, textAnim: 6 },
   "Puls":           { textLayout: "kachel", textSize: 0.12, textAnim: 3 },
@@ -365,10 +355,10 @@ uniform int uHead, uEchoes, uEchoStyle, uPerson, uBgMode, uBgMode2, uTextLayer, 
 uniform vec2 uRes, uVideoSize, uAnchor, uOffset;
 uniform float uMirror, uDelay, uSpread, uFade, uLine, uAlt, uContrast, uBg, uThreshold;
 uniform float uBgAmt, uBgAmt2, uBgScale, uBgTime;
-uniform float uTextOn, uTextSpread, uTextScroll, uTextGrain, uTextGlow, uBeat, uBandPos, uBandDir;
+uniform float uTextOn, uTextSpread, uTextScroll, uTextGlow, uBeat, uBandPos, uBandDir;
 uniform int uBandRows;
-uniform float uBass, uHigh, uLevel, uAudioText, uAudioEcho, uAudioBg, uAudioGrain;
-uniform float uPixel, uDither, uDitherSize, uGrain, uTime, uInvert;
+uniform float uBass, uHigh, uLevel, uAudioText, uAudioEcho, uAudioBg;
+uniform float uPixel, uTime, uInvert;
 uniform float uGlow, uVignette, uGamma;
 uniform vec3 uDark, uLight;
 
@@ -405,10 +395,17 @@ float bayer2(vec2 a) { a = floor(a); return fract(dot(a, vec2(0.5, a.y * 0.75)))
 float bayer4(vec2 a) { return bayer2(0.5 * a) * 0.25 + bayer2(a); }
 float bayer8(vec2 a) { return bayer4(0.5 * a) * 0.25 + bayer2(a); }
 float hash(vec2 p) { p = fract(p * vec2(123.34, 456.21)); p += dot(p, p + 45.32); return fract(p.x * p.y); }
+// Ganzzahl-Hash fürs Rauschen: der Float-Hash bekommt bei großen Koordinaten sichtbare Kanten
+float hashi(vec2 p) {
+  uvec2 q = uvec2(ivec2(p) + 65536);
+  uint h = (q.x * 1597334677u) ^ (q.y * 3812015801u);
+  h = (h ^ (h >> 16)) * 2246822519u;
+  return float(h ^ (h >> 13)) * (1.0 / 4294967296.0);
+}
 float noise(vec2 p) {
   vec2 i = floor(p), f = fract(p);
   f = f * f * (3.0 - 2.0 * f);
-  return mix(mix(hash(i), hash(i + vec2(1, 0)), f.x), mix(hash(i + vec2(0, 1)), hash(i + vec2(1, 1)), f.x), f.y);
+  return mix(mix(hashi(i), hashi(i + vec2(1, 0)), f.x), mix(hashi(i + vec2(0, 1)), hashi(i + vec2(1, 1)), f.x), f.y);
 }
 float fbm(vec2 p) {
   float v = 0.0, a = 0.5;
@@ -573,8 +570,6 @@ float textLayer(vec2 uv, vec2 dc) {
     float thr = mix(0.85, 0.2, 0.5 + 0.5 * sin(uTime * 0.3));
     a *= smoothstep(thr - 0.08, thr + 0.08, fbm(uv * vec2(7.0, 4.0) + uTime * 0.06));
   }
-  float grain = max(uTextGrain, uTextAnim == 5 ? ph : 0.0);
-  if (grain > 0.0) a *= step(grain, hash(dc * 0.731 + fract(uTime * 3.1) * 53.0));
   return a;
 }
 float applyText(float c, float a) { return uTextMode == 1 ? mix(c, 1.0 - c, a) : mix(c, 1.0, a); }
@@ -583,7 +578,7 @@ void main() {
   vec2 uv = vUv;
   vec2 cell = vec2(0.0);
   if (uPixel > 1.0) { cell = floor(uv * uRes / uPixel); uv = (cell + 0.5) * uPixel / uRes; }
-  vec2 dc = uPixel > 1.0 ? cell : floor(gl_FragCoord.xy / uDitherSize);
+  vec2 dc = uPixel > 1.0 ? cell : floor(gl_FragCoord.xy);
 
   float lum = dot(texture(uVideo, toVideo(uv)).rgb, vec3(0.299, 0.587, 0.114));
   lum = clamp((lum - 0.5) * uContrast + 0.5, 0.0, 1.0);
@@ -633,8 +628,6 @@ void main() {
   // Club-Look: Ränder abdunkeln, Mitteltöne Richtung Schwarz drücken
   c *= 1.0 - uVignette * smoothstep(0.25, 0.9, length((vUv - 0.5) * vec2(uRes.x / uRes.y, 1.0)));
   c = pow(c, uGamma);
-  c = clamp(c + (hash(dc + fract(uTime * 7.31) * 97.0) - 0.5) * (uGrain + uAudioGrain * uHigh * 0.4), 0.0, 1.0);
-  if (uDither >= 2.0) { float lv = uDither - 1.0; c = floor(c * lv + bayer8(dc)) / lv; }
   if (uInvert > 0.5) c = 1.0 - c;
   if (uTextAnim == 2 && mod(floor(uBeat), 2.0) > 0.5) c = 1.0 - c;
   outColor = vec4(mix(uDark, uLight, c), 1.0);
@@ -762,7 +755,6 @@ function draw(t) {
   gl.uniform1i(U.uTextLayer, P.textMask === 1 ? 2 : P.textMask === 3 ? Math.max(P.textLayer, 1) : P.textLayer);
   gl.uniform1i(U.uTextMask, P.textMask);
   gl.uniform1i(U.uTextAnim, P.textAnim);
-  gl.uniform1f(U.uTextGrain, P.textGrain);
   gl.uniform1f(U.uTextGlow, P.textGlow);
   gl.uniform1f(U.uBeat, beatValue(t));
   // Audio-Regler wirken nur, solange Audio läuft
@@ -773,7 +765,6 @@ function draw(t) {
   gl.uniform1f(U.uAudioText, P.audioText * on);
   gl.uniform1f(U.uAudioEcho, P.audioEcho * on);
   gl.uniform1f(U.uAudioBg, P.audioBg * on);
-  gl.uniform1f(U.uAudioGrain, P.audioGrain * on * P.layerTexture);
   gl.uniform1i(U.uTextMode, P.textMode);
   gl.uniform1i(U.uTextEchoes, P.textEchoes);
   gl.uniform1f(U.uTextSpread, P.textSpread);
@@ -782,9 +773,6 @@ function draw(t) {
   gl.uniform1f(U.uBandPos, bandPos);
   gl.uniform1f(U.uBandDir, P.bandDir);
   gl.uniform1f(U.uPixel, P.layerTexture ? P.pixel : 1);
-  gl.uniform1f(U.uDither, P.layerTexture ? P.dither : 0);
-  gl.uniform1f(U.uDitherSize, P.ditherSize);
-  gl.uniform1f(U.uGrain, P.layerTexture ? P.grain : 0);
   gl.uniform1f(U.uTime, t / 1000);
   gl.uniform1f(U.uInvert, P.invert);
   gl.uniform1f(U.uGlow, P.glow);
