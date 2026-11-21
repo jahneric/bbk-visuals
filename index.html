@@ -525,7 +525,8 @@ float textAt(vec2 uv) { return textAtLod(uv, 0.0); }
 float textLayer(vec2 uv, vec2 dc) {
   float ph = fract(uBeat), bi = floor(uBeat);
   uv = (uv - 0.5) / (1.0 + uAudioText * uBass * 0.35) + 0.5;
-  if (uTextAnim == 3) uv = (uv - 0.5) / (1.0 + 0.18 * exp(-ph * 6.0)) + 0.5;
+  // Puls: wächst in ~40 ms an statt in einem Frame zu springen und atmet dann weich zurück
+  if (uTextAnim == 3) uv = (uv - 0.5) / (1.0 + 0.1 * smoothstep(0.0, 0.09, ph) * exp(-max(ph - 0.09, 0.0) * 4.0)) + 0.5;
   if (uTextAnim == 4) {
     float row = floor(uv.y * 28.0);
     // weniger Streifen, die nach dem Beat zurückrutschen – das Logo bleibt lesbar
