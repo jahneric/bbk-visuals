@@ -31,6 +31,7 @@ Ausführlich inkl. aller Tasten: [ANLEITUNG.txt](ANLEITUNG.txt)
 | Taste | |
 |---|---|
 | H / F | Menü an/aus / Vollbild |
+| O | Beamer-Fenster ohne Menü öffnen (Doppelklick = Vollbild) |
 | Y X C V J K | ruhige Abend-Looks (Nebel, Flüssig, Rauch …) mit Name/Logo |
 | 1–5 · 6–0 | Looks mit Kamera · Club dunkel |
 | Q W E R Z U | Looks ohne Kamera |

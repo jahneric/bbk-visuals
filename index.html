@@ -8,7 +8,11 @@
   :root { --paper: #EFE4C6; --ink: #141210; }
   html, body { margin: 0; height: 100%; background: #000; overflow: hidden;
     font: 12px/1.35 ui-monospace, "Courier New", monospace; color: var(--ink); }
-  canvas { position: fixed; inset: 0; width: 100vw; height: 100vh; display: block; }
+  canvas { position: fixed; inset: 0; width: 100vw; height: 100vh; display: block; object-fit: contain; }
+  /* Beamer-Fenster offen: Laptop zeigt links die Vorschau, rechts das Menü über die ganze Höhe */
+  body.steuer canvas { width: calc(100vw - 440px); }
+  body.steuer #panel { width: 416px; }
+  body.steuer #hint { display: none; }
   body.clean { cursor: none; }
   body.clean #panel, body.clean #hint { display: none; }
   #panel { position: fixed; top: 12px; right: 12px; width: 300px; max-height: calc(100vh - 24px);
@@ -67,6 +71,7 @@
 <div id="panel">
   <h1>bbk · echo</h1>
   <div id="status">startet…</div>
+  <button id="beamerBtn" title="Taste O">▣ Beamer-Fenster öffnen</button>
   <h2>Jetzt zeigen</h2>
   <div id="itemList" class="chips"></div>
   <h2>Ebenen an/aus</h2>
@@ -100,7 +105,7 @@
     <div id="controls"></div>
   </details>
   <details id="d-tasten"><summary>Tasten</summary>
-    <div>H Menü · F Vollbild · M Spiegeln<br>1–5 Kamera-Looks · 6–0 Club-Looks · Y X C V J K Abend (ruhig) · Q W E R Z U ohne Kamera<br>Shift+1–0 Logo-Looks<br>N nächster Name/Logo · T nächste Schrift (für alle) · B Hintergrund · A Audio an/aus<br>Leertaste mehrmals im Takt tippen = BPM</div>
+    <div>H Menü · F Vollbild · M Spiegeln<br>1–5 Kamera-Looks · 6–0 Club-Looks · Y X C V J K Abend (ruhig) · Q W E R Z U ohne Kamera<br>Shift+1–0 Logo-Looks<br>O Beamer-Fenster · N nächster Name/Logo · T nächste Schrift (für alle) · B Hintergrund · A Audio an/aus<br>Leertaste mehrmals im Takt tippen = BPM</div>
   </details>
 </div>
 <div id="hint">H = Menü · F = Vollbild</div>
@@ -525,7 +530,8 @@ float textLayer(vec2 uv, vec2 dc) {
   if (uTextAnim == 3) uv = (uv - 0.5) / (1.0 + 0.18 * exp(-ph * 6.0)) + 0.5;
   if (uTextAnim == 4) {
     float row = floor(uv.y * 28.0);
-    uv.x += (hash(vec2(row, bi)) - 0.5) * 0.2 * step(0.55, hash(vec2(row * 1.7, bi + 3.0)));
+    // weniger Streifen, die nach dem Beat zurückrutschen – das Logo bleibt lesbar
+    uv.x += (hash(vec2(row, bi)) - 0.5) * 0.16 * step(0.68, hash(vec2(row * 1.7, bi + 3.0))) * (0.25 + 0.75 * exp(-ph * 5.0));
   }
   if (uTextAnim == 7) {        // Schnitte: Streifen schieben sich auf dem Beat zusammen
     float row = floor(uv.y * 14.0);
@@ -710,9 +716,12 @@ function pushMask(data, w, h, invert) {
   gl.generateMipmap(gl.TEXTURE_2D_ARRAY);
 }
 
+// Mit Beamer-Fenster wird in dessen Größe gerechnet, sonst in der eigenen
+let beamer = null;
 function resize() {
-  canvas.width = innerWidth;
-  canvas.height = innerHeight;
+  const win = beamer && !beamer.closed ? beamer : window;
+  canvas.width = win.innerWidth;
+  canvas.height = win.innerHeight;
   textDirty = true;
 }
 addEventListener("resize", resize);
@@ -898,8 +907,10 @@ function drawText() {
 
   if (P.textLayout === "band" && item) drawBand(item, W, H);
   else if (item?.img) {
-    const h = Math.min(H * 0.9, P.textSize * H * 2.2);
-    const w = h * item.img.width / item.img.height;
+    let h = Math.min(H * 0.9, P.textSize * H * 2.2);
+    let w = h * item.img.width / item.img.height;
+    const maxW = W * (P.textLayout === "stapel" ? 0.27 : 0.78);
+    if (P.textLayout !== "kachel" && w > maxW) { h *= maxW / w; w = maxW; }
     const m = logoMask(item.img, w, h);
     if (P.textLayout === "voll") tctx.drawImage(logoMask(item.img, W, H), 0, 0);
     else if (P.textLayout === "kachel") {
@@ -1276,6 +1287,7 @@ document.getElementById("file").addEventListener("change", (e) => {
 });
 
 setInterval(() => {
+  if (beamer && beamer.closed) beamerClosed();
   // Kamera liefert seit 3 s kein Bild: Ohne-Kamera-Look, kommt sie wieder, der alte Look
   const camGone = performance.now() - lastVideoFrame > 3000;
   if (P.autoNoCam && camGone && !camBackup && !noCamBtns.some((b) => b.classList.contains("on"))) {
@@ -1474,11 +1486,46 @@ function applyDark(name) {
   darkBtns.forEach((b) => b.classList.toggle("on", b.textContent.endsWith(name)));
 }
 
-addEventListener("keydown", (e) => {
+// Beamer-Fenster: zeigt das Bild als Live-Stream, ohne Menü. Auf den Beamer ziehen, Doppelklick = Vollbild
+const beamerBtn = document.getElementById("beamerBtn");
+function openBeamer() {
+  if (beamer && !beamer.closed) { beamer.focus(); return; }
+  beamer = open("", "bbk-beamer", "popup,width=960,height=540");
+  if (!beamer) { beamerBtn.textContent = "▣ Popup blockiert – in Chrome erlauben"; return; }
+  const d = beamer.document;
+  d.title = "bbk · beamer";
+  d.body.innerHTML = "";
+  d.body.style.cssText = "margin:0;background:#000;overflow:hidden;cursor:none";
+  const v = d.createElement("video");
+  v.muted = v.autoplay = v.playsInline = true;
+  v.style.cssText = "position:fixed;inset:0;width:100vw;height:100vh;object-fit:contain";
+  v.srcObject = canvas.captureStream();
+  d.body.appendChild(v);
+  const full = () => (d.fullscreenElement ? d.exitFullscreen() : d.documentElement.requestFullscreen());
+  beamer.addEventListener("dblclick", full);
+  beamer.addEventListener("keydown", onKey);
+  beamer.addEventListener("resize", resize);
+  beamer.addEventListener("pagehide", () => setTimeout(beamerClosed, 100));
+  document.body.classList.add("steuer");
+  beamerBtn.textContent = "▣ Beamer-Fenster schließen";
+  resize();
+}
+function beamerClosed() {
+  if (beamer && !beamer.closed) return;
+  beamer = null;
+  document.body.classList.remove("steuer");
+  beamerBtn.textContent = "▣ Beamer-Fenster öffnen";
+  resize();
+}
+beamerBtn.addEventListener("click", () => (beamer && !beamer.closed ? (beamer.close(), beamerClosed()) : openBeamer()));
+
+function onKey(e) {
   if (["SELECT", "TEXTAREA", "INPUT"].includes(e.target.tagName) && e.target.type !== "range") return;
   const k = e.key.toLowerCase();
+  const doc = e.target.ownerDocument || document;
   if (k === "h") document.body.classList.toggle("clean");
-  else if (k === "f") document.fullscreenElement ? document.exitFullscreen() : document.documentElement.requestFullscreen();
+  else if (k === "o") openBeamer();
+  else if (k === "f") doc.fullscreenElement ? doc.exitFullscreen() : doc.documentElement.requestFullscreen();
   else if (k === "m") { P.mirror = P.mirror ? 0 : 1; syncUI(); save(); }
   else if (k === "n") { lastItemSwitch = performance.now(); nextItem(); }
   else if (k === "t") {
@@ -1510,7 +1557,8 @@ addEventListener("keydown", (e) => {
     if (n <= 5) applyPreset(Object.keys(PRESETS)[n - 1]);
     else if (Object.keys(DARK)[n - 6]) applyDark(Object.keys(DARK)[n - 6]);
   }
-});
+}
+addEventListener("keydown", onKey);
 
 resize();
 syncUI();

@@ -45,12 +45,20 @@ BEAMER
 ------
 Laptop per HDMI an den Beamer, Bildschirm "Erweitern" (Windows: Win+P,
 Mac: Systemeinstellungen → Displays → nicht spiegeln).
-Visuals-Fenster auf den Beamer ziehen, F = Vollbild, H = Menü weg.
+
+Mit getrenntem Menü (empfohlen):
+  Oben im Menü "Beamer-Fenster öffnen" (oder Taste O). Es geht ein zweites
+  Fenster ohne Menü auf → auf den Beamer ziehen → Doppelklick = Vollbild.
+  Auf dem Laptop bleibt links die Vorschau und rechts das Menü.
+  Das Laptop-Fenster nicht minimieren, sonst friert das Bild ein.
+
+Ohne zweites Fenster: Visuals-Fenster auf den Beamer ziehen, F = Vollbild, H = Menü weg.
 
 
 TASTEN
 ------
 H  Menü an/aus           F  Vollbild            M  Spiegeln
+O  Beamer-Fenster öffnen
 Y X C V J K  Abend-Looks (ruhig, neblig, mit Name/Logo)
 1–5  Looks mit Kamera    6–0  Club-Looks (dunkel)
 Q W E R Z U  Looks ohne Kamera (Signal, Flüssig, kombiniert, mit Logo)
