@@ -222,6 +222,7 @@ const SCHEMA = [
   ["threshold", "Schwelle", 0.2, 0.8, 0.01],
   ["smooth", "Glättung", 0, 0.9, 0.01],
   ["mirror", "Spiegeln", [[0, "aus"], [1, "an"]]],
+  ["quality", "Auflösung", [[1, "voll"], [0.75, "¾ – flüssiger"], [0.5, "½ – am flüssigsten"]]],
   ["autoNoCam", "Kamera weg", [[1, "Ohne-Kamera-Look"], [0, "nichts tun"]]],
 ];
 
@@ -235,7 +236,7 @@ const DEFAULTS = { ...LOOK, model: "schnell", threshold: 0.5, smooth: 0.4, mirro
   textSize: 0.28, textPos: 0.5, textEchoes: 0, textSpread: 0.06, textScroll: 0, font: "Monoton",
   itemEvery: 8, selKey: "logo:0", logoKey: "alpha", names: "artist eins\nartist zwei",
   textMask: 2, textGrain: 0, textGlow: 0, bpm: 128, beatDiv: 1, textAnim: 0,
-  bandRows: 5, bandSpeed: 0.12, bandDir: 1, audioBand: 0.3, autoNoCam: 1,
+  bandRows: 5, bandSpeed: 0.12, bandDir: 1, audioBand: 0.3, autoNoCam: 1, quality: 1,
   audioBeat: "audio", audioGain: 1, audioText: 0, audioEcho: 0.4, audioBg: 0.5, audioGrain: 0.3, audioDevice: "", camDevice: "", show: "fest", hideDefaultLogo: false,
   layerPerson: 1, layerEcho: 1, layerBg: 1, layerTexture: 1, layerClub: 1 };
 // Ebenen-Schalter: blenden ganze Ebenen aus, ohne ihre Einstellungen zu verlieren
@@ -720,8 +721,8 @@ function pushMask(data, w, h, invert) {
 let beamer = null;
 function resize() {
   const win = beamer && !beamer.closed ? beamer : window;
-  canvas.width = win.innerWidth;
-  canvas.height = win.innerHeight;
+  canvas.width = Math.round(win.innerWidth * P.quality);
+  canvas.height = Math.round(win.innerHeight * P.quality);
   textDirty = true;
 }
 addEventListener("resize", resize);
@@ -1165,7 +1166,7 @@ function beatValue(t) {
 
 // ---------- Erkennung ----------
 let fileset = null, segmenter = null, modelState = "lädt…", lastVideoTime = -1, lastTs = 0;
-let segCount = 0, drawCount = 0, lastVideoFrame = performance.now(), camBackup = null;
+let segCount = 0, drawCount = 0, camCount = 0, lastVideoFrame = performance.now(), camBackup = null;
 
 async function loadModel(name) {
   modelState = "lädt…";
@@ -1211,6 +1212,7 @@ function loop(t) {
   if (video.readyState >= 2 && video.currentTime !== lastVideoTime) {
     lastVideoTime = video.currentTime;
     lastVideoFrame = t;
+    camCount++;
     gl.activeTexture(gl.TEXTURE0);
     gl.bindTexture(gl.TEXTURE_2D, videoTex);
     gl.texImage2D(gl.TEXTURE_2D, 0, gl.RGBA, gl.RGBA, gl.UNSIGNED_BYTE, video);
@@ -1304,10 +1306,10 @@ setInterval(() => {
   const item = currentItem();
   const shown = !item ? "–" : item.img ? "Logo" : `${item.text} · ${currentFont()}`;
   statusEl.textContent = `Quelle: ${camBackup ? "kein Bild – Ohne-Kamera-Look" : sourceLabel}\nModell: ${modelState}\n`
-    + `Erkennung ${segCount * 2} fps · Bild ${drawCount * 2} fps\n`
+    + `Kamera ${camCount * 2} · Erkennung ${segCount * 2} · Bild ${drawCount * 2} fps\n`
     + `Audio: ${audioState} · ${analyser && P.audioBeat === "audio" ? Math.round(60000 / A.kickInterval) + " BPM (Kick)" : P.bpm + " BPM"}\n`
     + `Text: ${shown}`;
-  segCount = drawCount = 0;
+  segCount = drawCount = camCount = 0;
 }, 500);
 
 // ---------- UI ----------
@@ -1386,6 +1388,7 @@ function updateLayerBtns() {
 
 function onChange(key) {
   if (key === "model") loadModel(P.model);
+  if (key === "quality") resize();
   updateLayerBtns();
   if (key === "show") { itemIdx = 0; textDirty = true; renderItems(); }
   if (/^(text|font|logo)/.test(key)) textDirty = true;
